@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { applyCommand, createGame, defaultConfig, legalActions, redactGameForViewer } from "./engine.js";
+import { applyCommand, createGame, defaultConfig, legalActions, redactGameForViewer, timeoutTurn } from "./engine.js";
 import { CARD_COUNTS, LOCOMOTIVE, ROUTES, ROUTE_SCORES, TICKETS, TRAIN_COLORS, type CardColor } from "./map.js";
 import type { GameCommand, GameState } from "./types.js";
 
@@ -54,6 +54,34 @@ describe("选票阶段", () => {
     expect(() => applyCommand(state, "p0", { type: "KEEP_TICKETS", keep: [0] })).toThrow(/至少/);
   });
 
+  it("大家同时选，不分先后；选过的人不能再选；全部选完才开始", () => {
+    let state = createGame([...PLAYERS], 7);
+    // 先手以外的人也能先选
+    const order = [...PLAYERS].reverse();
+    state = applyCommand(state, order[0]!.id, { type: "KEEP_TICKETS", keep: [0, 1] });
+    expect(state.phase).toBe("tickets");
+    expect(() => applyCommand(state, order[0]!.id, { type: "KEEP_TICKETS", keep: [0, 1] })).toThrow(/已经选好/);
+    expect(() => applyCommand(state, order[1]!.id, { type: "DRAW_TICKETS" })).toThrow(/开局选票/);
+    state = applyCommand(state, order[1]!.id, { type: "KEEP_TICKETS", keep: [0, 1, 2] });
+    expect(state.phase).toBe("tickets");
+    state = applyCommand(state, order[2]!.id, { type: "KEEP_TICKETS", keep: [1, 2] });
+    expect(state.phase).toBe("playing");
+    expect(state.currentPlayer).toBe(state.startPlayer);
+    // 退回的 2 张票放到了票堆底部
+    expect(state.ticketDeck).toHaveLength(TICKETS.length - 9 + 2);
+    expect(state.ticketDiscard).toHaveLength(0);
+  });
+
+  it("选票超时：没选的人全部保留", () => {
+    let state = createGame([...PLAYERS], 8);
+    state = applyCommand(state, "p1", { type: "KEEP_TICKETS", keep: [0, 1] });
+    const next = timeoutTurn(state);
+    expect(next.phase).toBe("playing");
+    expect(next.players.find((p) => p.id === "p0")!.tickets).toHaveLength(3);
+    expect(next.players.find((p) => p.id === "p1")!.tickets).toHaveLength(2);
+    expect(next.events.filter((event) => event.type === "TurnTimedOut")).toHaveLength(2);
+  });
+
   it("选完后进入出牌阶段，先手已定", () => {
     const state = startGame();
     expect(state.phase).toBe("playing");
@@ -74,6 +102,18 @@ describe("抽车票", () => {
     expect(next.players[state.currentPlayer]!.trainCards).toHaveLength(5);
     expect(next.pending).toEqual({ type: "secondDraw" });
     expect(next.currentPlayer).toBe(state.currentPlayer); // 还是同一玩家
+  });
+
+  it("第二张不能拿明牌火车头", () => {
+    const state = startGame();
+    const playerId = turnOf(state);
+    const first = applyCommand(state, playerId, { type: "DRAW_CARD", source: { kind: "deck" } });
+    expect(first.pending).toEqual({ type: "secondDraw" });
+    const rigged = structuredClone(first);
+    rigged.faceUp[0] = LOCOMOTIVE;
+    expect(() => applyCommand(rigged, playerId, { type: "DRAW_CARD", source: { kind: "faceUp", index: 0 } })).toThrow(/火车头/);
+    // 合法行动里也不会出现它
+    expect(legalActions(rigged, playerId)).toEqual([{ type: "DRAW_CARD", source: { kind: "deck" } }]);
   });
 
   it("第二次抽牌后回合结束", () => {
@@ -224,6 +264,26 @@ describe("redactGameForViewer", () => {
     expect(redacted.deck).toHaveLength(0);
     expect(redacted.remainingCards).toBe(state.deck.length + state.discard.length);
   });
+
+  it("别人从牌库摸到的颜色对你隐藏，自己的和明牌照常显示", () => {
+    const state = startGame();
+    const drawer = turnOf(state);
+    const other = state.players.find((p) => p.id !== drawer)!.id;
+    const next = applyCommand(state, drawer, { type: "DRAW_CARD", source: { kind: "deck" } });
+    const drawn = next.events.find((event) => event.type === "CardDrawn");
+    expect(drawn && "color" in drawn && drawn.color).toBeTruthy();
+    const forOther = redactGameForViewer(next, other).events.find((event) => event.type === "CardDrawn")!;
+    expect("color" in forOther).toBe(false);
+    const forSelf = redactGameForViewer(next, drawer).events.find((event) => event.type === "CardDrawn")!;
+    expect("color" in forSelf && forSelf.color).toBeTruthy();
+  });
+
+  it("终局公开所有人的目的地票", () => {
+    const state = startGame();
+    const finished = { ...structuredClone(state), phase: "finished" as const };
+    const redacted = redactGameForViewer(finished, state.players[0]!.id);
+    for (const player of redacted.players) expect(player.tickets.length).toBeGreaterThan(0);
+  });
 });
 
 describe("随机模拟：整局能正常跑完", () => {
@@ -232,12 +292,9 @@ describe("随机模拟：整局能正常跑完", () => {
       const state = createGame([...PLAYERS], seed * 97 + 1);
       let current = state;
       let guard = 0;
-      // 开局选票：每人都保留前 2 张。
-      while (current.phase === "tickets" && guard < 20) {
-        const playerId = turnOf(current);
-        const drawn = current.players[current.currentPlayer]!.pendingTickets.length;
-        current = applyCommand(current, playerId, { type: "KEEP_TICKETS", keep: Array.from({ length: drawn }, (_, i) => i).slice(0, 2) });
-        guard += 1;
+      // 开局选票（同时进行，顺序随意）：每人都保留前 2 张。
+      for (const player of [...PLAYERS].reverse()) {
+        current = applyCommand(current, player.id, { type: "KEEP_TICKETS", keep: [0, 1] });
       }
       expect(current.phase).toBe("playing");
 

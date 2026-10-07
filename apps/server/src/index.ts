@@ -337,14 +337,15 @@ function setTurnDeadline(room: RoomState, deadline: number, key: string): void {
   room.turn = { deadline, timer, key };
 }
 
-/** 每个回合（game.turn）开始时限时 turnTimeoutSec 秒；同一回合里不重新计时。 */
+/** 每个回合（game.turn）开始时限时 turnTimeoutSec 秒。 */
 function updateTurnTimer(room: RoomState): void {
   const game = room.game;
   if (!game || game.phase === "finished") {
     clearTurnTimer(room);
     return;
   }
-  const key = `${game.version}:${game.turn}`;
+  // 开局选票是大家同时选，共用一个计时；出牌阶段每个回合一个计时（抽第二张不重新计时）。
+  const key = `${game.phase}:${game.turn}`;
   if (room.turn?.key === key) return;
   setTurnDeadline(room, Date.now() + (TURN_MS_OVERRIDE ?? game.config.turnTimeoutSec * 1000), key);
 }

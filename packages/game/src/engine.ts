@@ -276,8 +276,10 @@ function applyKeepTickets(state: GameState, playerId: string, command: KeepTicke
   let drawn: string[];
   let minKeep: number;
   let isSetup: boolean;
+  const player = state.players.find((candidate) => candidate.id === playerId)!;
   if (state.phase === "tickets") {
-    drawn = currentPlayer(state).pendingTickets;
+    if (player.pendingTickets.length === 0) throw new Error("你已经选好了，等其他玩家选完。");
+    drawn = player.pendingTickets;
     minKeep = state.config.startTicketsKeepMin;
     isSetup = true;
   } else if (state.phase === "playing" && state.pending?.type === "ticketChoice") {
@@ -293,22 +295,20 @@ function applyKeepTickets(state: GameState, playerId: string, command: KeepTicke
   if (kept.length < minKeep) throw new Error(`至少要保留 ${minKeep} 张目的地票。`);
   if (kept.some((index) => index < 0 || index >= drawn.length)) throw new Error("保留选择无效。");
 
-  const player = currentPlayer(state);
   const keptSet = new Set(kept);
   const discarded = drawn.filter((_, index) => !keptSet.has(index));
   for (const index of kept) player.tickets.push(drawn[index]!);
-  state.ticketDiscard.push(...discarded);
+  // 退回的票放到票堆底部（抽票从开头拿）
+  state.ticketDeck.push(...discarded);
   events.push({ type: "TicketsKept", player: playerId, kept: kept.length, discarded: discarded.length });
 
   if (isSetup) {
     player.pendingTickets = [];
-    if (state.currentPlayer + 1 >= state.players.length) {
+    if (state.players.every((candidate) => candidate.pendingTickets.length === 0)) {
       state.phase = "playing";
       state.currentPlayer = state.startPlayer;
       state.turn = 1;
       events.push({ type: "GameStarted", startPlayer: state.players[state.startPlayer]!.id });
-    } else {
-      state.currentPlayer += 1;
     }
   } else {
     delete state.pending;
@@ -337,6 +337,7 @@ function applyDrawCard(
   } else {
     const index = command.source.index;
     if (index < 0 || index >= state.faceUp.length) throw new Error("没有这张明牌。");
+    if (state.pending && state.faceUp[index] === LOCOMOTIVE) throw new Error("第二张不能拿明牌里的火车头。");
     color = state.faceUp[index]!;
     state.faceUp.splice(index, 1);
     replenishFaceUp(state, rng);
@@ -402,8 +403,13 @@ function applyClaimRoute(state: GameState, playerId: string, command: ClaimRoute
 /** 规则引擎主入口：校验并执行一个行动，返回新状态和事件。不修改传入的 state。 */
 export function apply(state: GameState, playerId: string, command: GameCommand, rng: Rng): { state: GameState; events: GameEvent[] } {
   if (state.phase === "finished") throw new Error("对局已经结束。");
-  if (currentPlayerId(state) !== playerId) throw new Error("还没轮到你。");
-  if (state.phase === "tickets" && command.type !== "KEEP_TICKETS") throw new Error("请先完成开局选票。");
+  if (state.phase === "tickets") {
+    // 开局选票所有人同时进行，不分先后
+    if (command.type !== "KEEP_TICKETS") throw new Error("请先完成开局选票。");
+    if (!state.players.some((player) => player.id === playerId)) throw new Error("你不在这局对局里。");
+  } else if (currentPlayerId(state) !== playerId) {
+    throw new Error("还没轮到你。");
+  }
 
   const next = structuredClone(state);
   const events: GameEvent[] = [];
@@ -430,22 +436,41 @@ export function apply(state: GameState, playerId: string, command: GameCommand, 
 
 /** 服务端用：用对局里保存的随机数状态执行行动，并记进动作序列。 */
 export function applyCommand(state: GameState, playerId: string, command: GameCommand): GameState {
+  return runCommand(state, playerId, command).state;
+}
+
+function runCommand(state: GameState, playerId: string, command: GameCommand): { state: GameState; events: GameEvent[] } {
   const rng = createRng(state.rngState ?? state.seed ?? 0);
-  const { state: next } = apply(state, playerId, command, rng);
+  const { state: next, events } = apply(state, playerId, command, rng);
   next.rngState = rng.state;
   next.log = [...(state.log ?? []), { player: playerId, command }];
-  return next;
+  return { state: next, events };
+}
+
+/** 没有任何可做的行动（牌和票都抽光、也铺不了路）时，超时直接结束这个回合。 */
+function passTurn(state: GameState, playerId: string): { state: GameState; events: GameEvent[] } {
+  const next = structuredClone(state);
+  const events: GameEvent[] = [];
+  delete next.pending;
+  endTurn(next, events);
+  next.version += 1;
+  next.events = events;
+  next.log = [...(state.log ?? []), { player: playerId, command: { type: "TIMEOUT" } }];
+  return { state: next, events };
 }
 
 /** 当前玩家所有合法行动的种子（用于前端高亮与超时自动行动）。 */
 export function legalActions(state: GameState, playerId: string): GameCommand[] {
   if (state.phase === "finished") return [];
+  if (state.phase === "tickets") {
+    const chooser = state.players.find((candidate) => candidate.id === playerId);
+    return chooser && chooser.pendingTickets.length > 0
+      ? [{ type: "KEEP_TICKETS", keep: chooser.pendingTickets.map((_, index) => index) }]
+      : [];
+  }
   if (currentPlayerId(state) !== playerId) return [];
   const player = currentPlayer(state);
 
-  if (state.phase === "tickets") {
-    return [{ type: "KEEP_TICKETS", keep: player.pendingTickets.map((_, index) => index) }];
-  }
   if (state.pending?.type === "ticketChoice") {
     return [{ type: "KEEP_TICKETS", keep: state.pending.drawn.map((_, index) => index) }];
   }
@@ -477,21 +502,35 @@ export function legalActions(state: GameState, playerId: string): GameCommand[] 
 
 function drawSource(state: GameState): DrawSource | null {
   if (state.deck.length > 0 || state.discard.length > 0) return { kind: "deck" };
-  if (state.faceUp.length > 0) return { kind: "faceUp", index: 0 };
-  return null;
+  const index = state.faceUp.findIndex((card) => !(state.pending && card === LOCOMOTIVE));
+  return index >= 0 ? { kind: "faceUp", index } : null;
 }
 
 /** 超时/断线时自动替当前玩家选一个合法动作：优先抽牌，其次抽目的地票，最后铺一条能铺的线路。 */
-function autoAction(state: GameState, playerId: string): GameCommand {
-  const actions = legalActions(state, playerId);
-  if (actions.length === 0) throw new Error("没有可执行的行动。");
+function autoAction(state: GameState, playerId: string): GameCommand | null {
   // 抽牌 / 抽票优先，铺路最后（铺路要消耗资源，不替玩家做主）。
-  return actions[0]!;
+  return legalActions(state, playerId)[0] ?? null;
 }
 
 /** 回合超时（含断线玩家）：把当前玩家这一整个回合自动走完。 */
 export function timeoutTurn(state: GameState): GameState {
   if (state.phase === "finished") return state;
+  if (state.phase === "tickets") {
+    // 开局选票超时：还没选的人全部保留
+    let current = state;
+    const timedOut: GameEvent[] = [];
+    const allEvents: GameEvent[] = [];
+    for (const player of state.players) {
+      const command = autoAction(current, player.id);
+      if (!command) continue;
+      const { state: next, events } = runCommand(current, player.id, command);
+      timedOut.push({ type: "TurnTimedOut", player: player.id });
+      allEvents.push(...events);
+      current = next;
+    }
+    current.events = [...timedOut, ...allEvents];
+    return current;
+  }
   const timedOutId = currentPlayerId(state);
   let current = state;
   const allEvents: GameEvent[] = [];
@@ -499,10 +538,7 @@ export function timeoutTurn(state: GameState): GameState {
     if (current.phase === "finished" || currentPlayerId(current) !== timedOutId) break;
     const beforePhase = current.phase;
     const command = autoAction(current, timedOutId);
-    const rng = createRng(current.rngState ?? current.seed ?? 0);
-    const { state: next, events } = apply(current, timedOutId, command, rng);
-    next.rngState = rng.state;
-    next.log = [...(current.log ?? []), { player: timedOutId, command }];
+    const { state: next, events } = command ? runCommand(current, timedOutId, command) : passTurn(current, timedOutId);
     allEvents.push(...events);
     current = next;
     // 跨阶段（选票→出牌 / 出牌→结束）后不再替同一玩家继续自动行动。
@@ -518,6 +554,7 @@ export function timeoutTurn(state: GameState): GameState {
  */
 export function redactGameForViewer(state: GameState, viewerId: string): GameState {
   const isCurrent = currentPlayerId(state) === viewerId;
+  const finished = state.phase === "finished";
   const players = state.players.map((player) => {
     const mine = player.id === viewerId;
     return {
@@ -525,10 +562,17 @@ export function redactGameForViewer(state: GameState, viewerId: string): GameSta
       handCount: player.trainCards.length,
       ticketCount: player.tickets.length,
       trainCards: mine ? player.trainCards : [],
-      tickets: mine ? player.tickets : [],
+      // 目的地票终局才公开
+      tickets: mine || finished ? player.tickets : [],
       pendingTickets: mine ? player.pendingTickets : [],
     };
   });
+  // 别人从牌库摸到什么颜色不告诉你
+  const events = state.events.map((event) => (
+    event.type === "CardDrawn" && event.source === "deck" && event.player !== viewerId
+      ? { type: event.type, player: event.player, source: event.source }
+      : event
+  ));
 
   const {
     deck, discard, ticketDeck, ticketDiscard,
@@ -539,6 +583,7 @@ export function redactGameForViewer(state: GameState, viewerId: string): GameSta
   return {
     ...rest,
     players,
+    events,
     deck: [],
     discard: [],
     ticketDeck: [],
@@ -592,7 +637,7 @@ export function createGame(
     config,
     phase: "tickets",
     players: playerStates,
-    currentPlayer: 0,
+    currentPlayer: startPlayer,
     turn: 0,
     startPlayer,
     claimedRoutes: [],

@@ -80,7 +80,8 @@ export interface FinalResult {
 /** 每个动作产生的事件，前端按顺序逐条播放。 */
 export type GameEvent =
   | { readonly type: "TicketsKept"; readonly player: string; readonly kept: number; readonly discarded: number }
-  | { readonly type: "CardDrawn"; readonly player: string; readonly source: "deck" | "faceUp"; readonly color: CardColor }
+  /** 别人从牌库摸的牌对你隐藏：color 被去掉。 */
+  | { readonly type: "CardDrawn"; readonly player: string; readonly source: "deck" | "faceUp"; readonly color?: CardColor }
   | { readonly type: "TicketsTaken"; readonly player: string; readonly count: number }
   | { readonly type: "RouteClaimed"; readonly player: string; readonly routeId: string; readonly color: TrainColor; readonly points: number; readonly trainsLeft: number }
   | { readonly type: "LastRoundStarted"; readonly player: string }
@@ -93,7 +94,7 @@ export interface GameState {
   /** tickets：开局选目的地票；playing：出牌阶段；finished：结束。 */
   phase: "tickets" | "playing" | "finished";
   players: Player[];
-  /** 当前玩家在 players 里的下标。 */
+  /** 当前玩家在 players 里的下标（选票阶段大家同时选，这里是先手）。 */
   currentPlayer: number;
   /** 第几个回合；选票阶段为 0，进入出牌阶段后每个完整回合 +1。 */
   turn: number;
@@ -108,7 +109,7 @@ export interface GameState {
   discard: CardColor[];
   /** 目的地票牌库（服务端）。 */
   ticketDeck: string[];
-  /** 被弃掉的目的地票（服务端）。 */
+  /** 旧字段：退回的目的地票现在放回 ticketDeck 底部，这里一直是空的。 */
   ticketDiscard: string[];
   /** 当前玩家需要补完的半个动作。 */
   pending?: { readonly type: "secondDraw" } | { readonly type: "ticketChoice"; readonly drawn: string[] };

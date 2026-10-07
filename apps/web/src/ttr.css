@@ -1,10 +1,72 @@
 /*
  * 车票之旅（Ticket to Ride）的牌桌皮肤。叠在 app-pixel.css 的暗色像素皮肤之上。
- * 主区域是 SVG 美国地图 + 右侧边栏（明牌区、手牌、目的地票、动作记录、聊天）。
+ * 主区域是 SVG 美国地图 + 右侧边栏（玩家、抽牌区、手牌、目的地票、动作记录、聊天）。
  * 颜色用 app-pixel.css 里定义的 --bg / --panel / --gold / --rim / --text 等变量。
  */
 
-/* ---------- 首页主图与卡片展示 ---------- */
+/* 像素字体只在 12px 的整数倍下清楚：small 默认会缩小字号，统一拉回 12px */
+.ttr-screen small, .gm-panel small, .app-shell .ttr-showcase small { font-size: 12px; font-weight: 400; }
+
+/* 通用的像素描边（四边 1 像素黑边 + 内侧亮边/暗边） */
+.ttr-panel, .ttr-card, .ttr-deck, .ttr-secondary-button, .ttr-ticket, .ttr-prompt {
+  box-shadow:
+    0 calc(var(--px) * -1) 0 0 var(--edge),
+    0 var(--px) 0 0 var(--edge),
+    calc(var(--px) * -1) 0 0 0 var(--edge),
+    var(--px) 0 0 0 var(--edge),
+    inset var(--px) var(--px) 0 0 var(--rim),
+    inset calc(var(--px) * -1) calc(var(--px) * -1) 0 0 var(--shade);
+}
+
+/* ---------- 车票牌面 ---------- */
+.ttr-cardface {
+  --c: #888;
+  position: relative;
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: color-mix(in srgb, var(--c) 42%, #120e0b);
+  box-shadow: inset 0 0 0 2px var(--c), inset 0 0 0 4px rgba(0, 0, 0, 0.35);
+}
+/* 车厢小图已裁掉透明边，横着占满牌面宽度 */
+.ttr-cardface img {
+  position: absolute;
+  left: 50%;
+  top: 60%;
+  width: 92%;
+  transform: translate(-50%, -50%);
+  image-rendering: pixelated;
+  pointer-events: none;
+}
+.ttr-cardface em {
+  position: absolute;
+  left: 5px;
+  top: 5px;
+  color: #fff;
+  font-size: 12px;
+  font-style: normal;
+  line-height: 1;
+  text-shadow: 1px 0 0 #000, -1px 0 0 #000, 0 1px 0 #000, 0 -1px 0 #000;
+}
+.ttr-cardface-purple { --c: #8a63d2; }
+.ttr-cardface-blue { --c: #3b6fd4; }
+.ttr-cardface-orange { --c: #e8833a; }
+.ttr-cardface-green { --c: #3f9e5a; }
+.ttr-cardface-yellow { --c: #e0b23c; }
+.ttr-cardface-red { --c: #c8453c; }
+/* 白车厢配深灰底、黑车厢配浅灰底，才看得清 */
+.ttr-cardface-white { --c: #e8e4da; background: #4a505c; }
+.ttr-cardface-black { --c: #1c1c22; background: #8c8c99; }
+.ttr-cardface-black em { color: #1c1c22; text-shadow: 1px 0 0 #fff, -1px 0 0 #fff, 0 1px 0 #fff, 0 -1px 0 #fff; }
+.ttr-cardface-locomotive {
+  --c: #f0c050;
+  background:
+    linear-gradient(rgba(18, 14, 11, 0.45), rgba(18, 14, 11, 0.45)),
+    linear-gradient(180deg, #8a63d2 0 15%, #3b6fd4 15% 29%, #3f9e5a 29% 43%, #e0b23c 43% 57%, #e8833a 57% 71%, #c8453c 71% 86%, #e8e4da 86%);
+}
+
+/* ---------- 首页主图与牌面展示 ---------- */
 .app-shell .ttr-hero {
   display: block;
   width: 100%;
@@ -12,18 +74,8 @@
   margin-top: 26px;
   image-rendering: pixelated;
 }
-.app-shell .ttr-showcase { display: flex; align-items: center; gap: 8px; margin-top: 18px; }
-.app-shell .ttr-showcase-card {
-  width: 40px;
-  height: 56px;
-  background-size: cover;
-  image-rendering: pixelated;
-  box-shadow:
-    0 calc(var(--px) * -1) 0 0 var(--edge),
-    0 var(--px) 0 0 var(--edge),
-    calc(var(--px) * -1) 0 0 0 var(--edge),
-    var(--px) 0 0 0 var(--edge);
-}
+.app-shell .ttr-showcase { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 18px; max-width: 420px; }
+.app-shell .ttr-showcase-card { display: block; width: 40px; height: 56px; }
 
 /* ---------- 牌桌整体 ---------- */
 .app-shell.ttr-game { width: min(1520px, calc(100% - 24px)); }
@@ -38,194 +90,254 @@
   padding: 12px 2px;
   border-bottom: var(--px) solid var(--rim);
 }
-.ttr-topbar .brand-name { font-size: 12px; }
 .ttr-topbar-right { display: flex; align-items: center; gap: 10px; }
 
-.ttr-turn { display: flex; align-items: center; gap: 12px; color: var(--muted); }
-.ttr-turn > span:first-child { color: var(--text); }
-.ttr-turn-who { display: inline-flex; align-items: center; gap: 7px; }
-.ttr-turn-who i { width: 10px; height: 10px; border-radius: 2px; }
+.ttr-turn { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; color: var(--text); font-size: 12px; }
+.ttr-turn-who { display: inline-flex; align-items: center; gap: 7px; color: var(--muted); }
+.ttr-turn-who i { width: 10px; height: 10px; }
 .ttr-turn-who.mine { color: var(--gold); }
-.ttr-timer { margin-left: 4px; padding: 1px 6px; color: var(--gold); background: var(--panel); }
+.ttr-last-round { padding: 2px 8px; color: #2a0a0a; background: var(--bad); }
+.ttr-timer { padding: 2px 8px; color: var(--gold); background: var(--panel); font-weight: 400; }
 .ttr-timer.low { color: var(--bad); }
 
 /* ---------- 布局：地图 + 侧栏 ---------- */
-.ttr-layout { display: grid; grid-template-columns: minmax(0, 1fr) 336px; gap: 12px; align-items: start; }
-
+.ttr-layout { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 14px; align-items: start; }
 .ttr-map-area { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
 
+.ttr-prompt {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-height: 46px;
+  padding: 8px 12px;
+  color: var(--text);
+  font-size: 12px;
+  background: var(--panel);
+}
+.ttr-prompt.mine { --rim: var(--gold); color: var(--gold); background: #33261a; }
+.ttr-prompt-buttons { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.ttr-prompt-buttons .primary-button { width: auto; min-height: 30px; margin-top: 0; padding: 0 18px; }
+.ttr-prompt-buttons .quiet-button { padding: 6px 10px; }
+.ttr-cost { color: var(--text); }
+.ttr-color-pick { display: inline-flex; align-items: center; gap: 6px; }
+.ttr-swatch {
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 0;
+  cursor: pointer;
+  box-shadow: 0 0 0 var(--px) var(--edge), inset 0 0 0 var(--px) rgba(255, 255, 255, 0.25);
+}
+.ttr-swatch.picked { outline: 2px solid var(--gold); outline-offset: 2px; }
+.ttr-feedback { margin: 0; font-size: 12px; color: var(--ok); }
+.ttr-feedback.error { color: var(--bad); }
+.ttr-map-hint { margin: 0; color: var(--muted); font-size: 12px; line-height: 1.6; }
+.ttr-swipe-hint { display: none; color: var(--gold); }
+
+/* ---------- 地图 ---------- */
 .ttr-map {
   width: 100%;
-  border: var(--px) solid var(--rim);
-  background: #15240f;
+  overflow: hidden;
+  background: #10263a;
   box-shadow:
-    0 calc(var(--px) * -1) 0 0 var(--edge),
-    0 var(--px) 0 0 var(--edge),
-    calc(var(--px) * -1) 0 0 0 var(--edge),
-    var(--px) 0 0 0 var(--edge),
-    inset var(--px) var(--px) 0 0 rgba(240, 192, 80, 0.35),
-    inset calc(var(--px) * -1) calc(var(--px) * -1) 0 0 var(--shade);
+    0 0 0 var(--px) var(--edge),
+    0 0 0 calc(var(--px) * 2) var(--rim),
+    0 0 0 calc(var(--px) * 3) var(--edge);
 }
-.ttr-map svg { display: block; width: 100%; height: auto; }
-.ttr-map-bg { fill: #15240f; }
-.ttr-map .ttr-route-hit { stroke: transparent; cursor: pointer; }
-.ttr-map .ttr-route-hit:hover { stroke: rgba(240, 192, 80, 0.35); }
-.ttr-city circle { fill: var(--gold); stroke: #0c0907; stroke-width: 0.5; }
-.ttr-city-label { fill: #e8e2cf; font-size: 3.1px; font-family: "Fusion Pixel", monospace; text-anchor: middle; paint-order: stroke; stroke: #0c0907; stroke-width: 0.5px; }
+.ttr-map svg { display: block; width: 100%; height: auto; user-select: none; }
+.ttr-map-sea { fill: #10263a; }
+.ttr-map-land { fill: #26392a; stroke: #3b5440; stroke-width: 0.25; }
+.ttr-map-border { fill: none; stroke: #4d6650; stroke-width: 0.22; stroke-dasharray: 0.7 0.6; }
 
-.ttr-prompt { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: 34px; color: var(--text); }
-.ttr-prompt-buttons { display: inline-flex; align-items: center; gap: 8px; }
-.ttr-prompt-buttons .primary-button { width: auto; margin-top: 0; padding: 0 14px; min-height: 34px; }
-.ttr-prompt-buttons .quiet-button { padding: 6px 10px; }
-.ttr-color-pick { display: inline-flex; align-items: center; gap: 5px; }
-.ttr-swatch {
-  width: 20px; height: 20px; border-radius: 3px; cursor: pointer;
-  border: 0;
-  box-shadow:
-    0 calc(var(--px) * -1) 0 0 var(--edge),
-    0 var(--px) 0 0 var(--edge),
-    calc(var(--px) * -1) 0 0 0 var(--edge),
-    var(--px) 0 0 0 var(--edge);
+.ttr-car { stroke: #0c0907; stroke-width: 0.22; }
+.ttr-car-shine { fill: rgba(255, 255, 255, 0.55); pointer-events: none; }
+.ttr-route.owned .ttr-car { stroke-width: 0.32; }
+.ttr-route.blocked { opacity: 0.22; }
+/* 轮到你时：铺不起的线路变暗，铺得起的保持原样；鼠标移上去描白边 */
+.ttr-map.acting .ttr-route.open .ttr-car { opacity: 0.35; }
+.ttr-route.selected .ttr-car { stroke: #fff; stroke-width: 0.45; }
+.ttr-route-hit { stroke: transparent; stroke-width: 2.4; stroke-linecap: round; }
+.ttr-route.claimable .ttr-route-hit { cursor: pointer; }
+.ttr-route.claimable:hover .ttr-car { stroke: #fff; stroke-width: 0.45; }
+
+.ttr-city circle { fill: #f0c050; stroke: #0c0907; stroke-width: 0.32; }
+.ttr-city.lit circle { fill: #fff2b8; }
+.ttr-city .ttr-city-ring { fill: none; stroke: #fff2b8; stroke-width: 0.35; stroke-dasharray: 0.8 0.5; pointer-events: none; }
+.ttr-city-label {
+  fill: #f1ece0;
+  font-family: "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", system-ui, sans-serif;
+  font-size: 1.55px;
+  font-weight: 600;
+  paint-order: stroke;
+  stroke: #0c0907;
+  stroke-width: 0.42px;
+  stroke-linejoin: round;
+  pointer-events: none;
 }
-.ttr-swatch.picked { outline: var(--px) solid var(--gold); outline-offset: 2px; }
-.ttr-swatch:disabled { opacity: 0.35; cursor: not-allowed; }
-.ttr-feedback { margin: 0; font-size: 12px; }
-.ttr-feedback.error { color: var(--bad); }
+.ttr-city.lit .ttr-city-label { fill: #fff2b8; }
+.ttr-ticket-line { stroke: #fff2b8; stroke-width: 0.45; stroke-dasharray: 1.2 0.8; stroke-linecap: round; pointer-events: none; }
 
 /* ---------- 侧栏面板 ---------- */
-.ttr-side { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.ttr-side { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.ttr-panel { padding: 12px; color: var(--text); background: var(--panel); }
+.ttr-panel h3 { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin: 0 0 10px; color: var(--gold); font-size: 12px; font-weight: 400; }
+.ttr-panel h3 small { color: var(--muted); }
+.ttr-muted { margin: 0; color: var(--muted); font-size: 12px; line-height: 1.6; }
 
-.ttr-panel {
-  padding: 10px 12px;
-  color: var(--text);
-  background: var(--panel);
-  box-shadow:
-    0 calc(var(--px) * -1) 0 0 var(--edge),
-    0 var(--px) 0 0 var(--edge),
-    calc(var(--px) * -1) 0 0 0 var(--edge),
-    var(--px) 0 0 0 var(--edge),
-    inset var(--px) var(--px) 0 0 var(--rim),
-    inset calc(var(--px) * -1) calc(var(--px) * -1) 0 0 var(--shade);
-}
-.ttr-panel h3 { margin: 0 0 8px; color: var(--gold); font-size: 12px; font-weight: 400; }
-.ttr-panel h3 small { margin-left: 6px; color: var(--muted); font-size: 12px; }
-.ttr-muted { margin: 0; color: var(--muted); font-size: 12px; }
+/* 玩家 */
+.ttr-player { display: flex; align-items: center; gap: 10px; padding: 6px 0; border-bottom: var(--px) solid var(--panel-2); }
+.ttr-player:last-child { border-bottom: 0; }
+.ttr-player.offline { opacity: 0.55; }
+.ttr-seat { width: 12px; height: 12px; flex: 0 0 12px; box-shadow: 0 0 0 var(--px) var(--edge); }
+.ttr-player-main { display: flex; flex: 1; min-width: 0; flex-direction: column; gap: 3px; }
+.ttr-player-main strong { overflow: hidden; color: var(--text); font-size: 12px; font-weight: 400; text-overflow: ellipsis; white-space: nowrap; }
+.ttr-player.active .ttr-player-main strong { color: var(--gold); }
+.ttr-player.active .ttr-player-main strong::before { content: "▶ "; }
+.ttr-you { margin-left: 6px; padding: 0 4px; color: #2a1c06; background: var(--gold); }
+.ttr-offline { margin-left: 6px; color: var(--bad); }
+.ttr-player-stats { color: var(--muted); font-size: 12px; }
+.ttr-score { flex: 0 0 auto; min-width: 28px; color: var(--gold); font-size: 24px; line-height: 1; text-align: right; }
 
-/* 明牌区 */
-.ttr-faceup-row { display: flex; align-items: stretch; gap: 6px; }
+/* 抽车票：牌库 + 5 张明牌 */
+.ttr-faceup-row { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 6px; margin-bottom: 10px; }
 .ttr-card, .ttr-deck {
   position: relative;
-  width: 44px; height: 62px; padding: 0; cursor: pointer;
-  border: 0; background: var(--panel-2);
-  box-shadow:
-    0 calc(var(--px) * -1) 0 0 var(--edge),
-    0 var(--px) 0 0 var(--edge),
-    calc(var(--px) * -1) 0 0 0 var(--edge),
-    var(--px) 0 0 0 var(--edge),
-    inset var(--px) var(--px) 0 0 var(--rim),
-    inset calc(var(--px) * -1) calc(var(--px) * -1) 0 0 var(--shade);
+  aspect-ratio: 5 / 7;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  cursor: pointer;
+  background: var(--panel-2);
 }
-.ttr-card img { display: block; width: 100%; height: 100%; object-fit: cover; image-rendering: pixelated; }
-.ttr-card:disabled, .ttr-deck:disabled { opacity: 0.5; cursor: not-allowed; }
-.ttr-card:not(:disabled):hover, .ttr-deck:not(:disabled):hover { outline: var(--px) solid var(--gold); outline-offset: 1px; }
-.ttr-deck { display: grid; place-items: center; background: #5a3b22; }
-.ttr-deck span { color: var(--text); font-size: 12px; writing-mode: vertical-rl; letter-spacing: 2px; }
-.ttr-faceup-actions { margin-top: 8px; }
+.ttr-card { padding: 0; box-shadow: 0 0 0 var(--px) var(--edge); }
+.ttr-card:disabled, .ttr-deck:disabled { cursor: default; }
+.ttr-card:disabled { filter: saturate(0.55) brightness(0.75); }
+.ttr-card:not(:disabled):hover, .ttr-deck:not(:disabled):hover { outline: 2px solid var(--gold); outline-offset: 1px; transform: translateY(-2px); }
+.ttr-deck {
+  display: grid;
+  place-items: center;
+  background: repeating-linear-gradient(45deg, #5a3b22 0 4px, #4a2f1a 4px 8px);
+}
+.ttr-deck span { color: var(--text); font-size: 12px; writing-mode: vertical-rl; letter-spacing: 4px; }
+.ttr-deck:disabled span { color: var(--muted); }
 .ttr-secondary-button {
-  width: 100%; min-height: 34px; cursor: pointer;
-  color: var(--text); background: var(--panel-2); border: 0;
-  box-shadow:
-    0 calc(var(--px) * -1) 0 0 var(--edge),
-    0 var(--px) 0 0 var(--edge),
-    calc(var(--px) * -1) 0 0 0 var(--edge),
-    var(--px) 0 0 0 var(--edge),
-    inset var(--px) var(--px) 0 0 var(--rim),
-    inset calc(var(--px) * -1) calc(var(--px) * -1) 0 0 var(--shade);
+  width: 100%;
+  min-height: 36px;
+  border: 0;
+  cursor: pointer;
+  color: var(--text);
+  font-size: 12px;
+  background: var(--panel-2);
 }
 .ttr-secondary-button:hover:not(:disabled) { color: var(--gold); }
-.ttr-secondary-button:disabled { opacity: 0.5; cursor: not-allowed; }
+.ttr-secondary-button:disabled { color: var(--muted); cursor: default; }
 
-/* 手牌与目的地票 */
-.ttr-hand-row { display: flex; flex-wrap: wrap; gap: 6px; }
-.ttr-hand-card { position: relative; width: 44px; height: 62px; display: block; }
-.ttr-hand-card img { display: block; width: 100%; height: 100%; object-fit: cover; image-rendering: pixelated; box-shadow: 0 var(--px) 0 0 var(--edge), var(--px) 0 0 0 var(--edge), calc(var(--px) * -1) 0 0 0 var(--edge), 0 calc(var(--px) * -1) 0 0 var(--edge); }
+/* 手牌 */
+.ttr-hand-row { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; }
+.ttr-hand-card { position: relative; display: block; aspect-ratio: 5 / 7; box-shadow: 0 0 0 var(--px) var(--edge); }
 .ttr-hand-card b {
-  position: absolute; right: -3px; bottom: -3px; min-width: 16px; height: 16px;
-  display: grid; place-items: center; padding: 0 3px;
-  color: #0c0907; background: var(--gold); font-size: 12px; font-weight: 400;
+  position: absolute;
+  right: -4px;
+  bottom: -4px;
+  min-width: 20px;
+  height: 20px;
+  display: grid;
+  place-items: center;
+  padding: 0 4px;
+  color: #2a1c06;
+  font-size: 12px;
+  font-weight: 400;
+  background: var(--gold);
+  box-shadow: 0 0 0 var(--px) var(--edge);
 }
-.ttr-my-tickets ul { margin: 0; padding: 0; list-style: none; }
-.ttr-my-tickets li { padding: 3px 0; color: var(--text); font-size: 12px; border-bottom: var(--px) solid var(--panel-2); }
-.ttr-my-tickets li:last-child { border-bottom: 0; }
 
-/* 玩家列表 */
-.ttr-players .ttr-player {
-  display: flex; align-items: center; gap: 8px; padding: 5px 0;
-  border-bottom: var(--px) solid var(--panel-2); color: var(--text);
+/* 我的目的地票 */
+.ttr-my-tickets ul { margin: 0; padding: 0; list-style: none; }
+.ttr-my-tickets li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: baseline;
+  gap: 8px;
+  padding: 5px 4px;
+  color: var(--text);
+  font-size: 12px;
+  border-bottom: var(--px) solid var(--panel-2);
+  cursor: default;
 }
-.ttr-players .ttr-player:last-child { border-bottom: 0; }
-.ttr-player.active { color: var(--gold); }
-.ttr-player.offline { opacity: 0.5; }
-.ttr-seat { width: 10px; height: 10px; flex: 0 0 10px; border-radius: 2px; }
-.ttr-player strong { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 400; }
-.ttr-player strong small { margin-left: 5px; color: var(--muted); }
-.ttr-trains { flex: 0 0 auto; color: var(--muted); }
-.ttr-score { flex: 0 0 auto; min-width: 22px; text-align: right; color: var(--gold); }
+.ttr-my-tickets li:hover { background: var(--panel-2); }
+.ttr-my-tickets li:last-child { border-bottom: 0; }
+.ttr-my-tickets li b { color: var(--gold); font-weight: 400; }
+.ttr-my-tickets li i { color: var(--muted); font-style: normal; }
+.ttr-my-tickets li.done i { color: var(--ok); }
+.ttr-tip { margin-top: 8px; }
 
 /* 动作记录 */
-.ttr-log { max-height: 200px; overflow-y: auto; }
-.ttr-log ul { margin: 0; padding: 0; list-style: none; }
-.ttr-log li { padding: 3px 0; color: var(--muted); font-size: 12px; border-bottom: var(--px) solid var(--panel-2); }
+.ttr-log ul { max-height: 200px; margin: 0; padding: 0; overflow-y: auto; list-style: none; }
+.ttr-log li { padding: 3px 0; color: var(--muted); font-size: 12px; line-height: 1.6; border-bottom: var(--px) solid var(--panel-2); }
+.ttr-log li:first-child { color: var(--text); }
 .ttr-log li:last-child { border-bottom: 0; }
 
 /* 目的地票弹窗 */
-.ttr-ticket-modal { width: min(480px, 100%); }
-.ttr-ticket-list { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; }
+.app-shell .gm-panel.ttr-ticket-modal { width: min(520px, 100%); }
+.ttr-ticket-list { display: flex; flex-direction: column; gap: 10px; margin-top: 14px; }
 .ttr-ticket {
-  display: flex; align-items: center; justify-content: space-between; gap: 10px;
-  padding: 10px 12px; cursor: pointer; border: 0;
-  color: var(--text); background: var(--panel-2);
-  box-shadow:
-    0 calc(var(--px) * -1) 0 0 var(--edge),
-    0 var(--px) 0 0 var(--edge),
-    calc(var(--px) * -1) 0 0 0 var(--edge),
-    var(--px) 0 0 0 var(--edge),
-    inset var(--px) var(--px) 0 0 var(--rim),
-    inset calc(var(--px) * -1) calc(var(--px) * -1) 0 0 var(--shade);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 12px 8px 8px;
+  border: 0;
+  cursor: pointer;
+  color: var(--text);
+  text-align: left;
+  background: var(--panel-2);
 }
 .ttr-ticket.kept { --rim: var(--gold); }
-.ttr-ticket.dropped { opacity: 0.55; }
-.ttr-ticket-route { flex: 1; text-align: left; font-size: 12px; }
+.ttr-ticket.dropped { opacity: 0.5; }
+.ttr-ticket-map { flex: 0 0 120px; width: 120px; height: auto; box-shadow: 0 0 0 var(--px) var(--edge); }
+.ttr-ticket-dot { fill: #6f7f6a; }
+.ttr-ticket-map-line { stroke: #fff2b8; stroke-width: 1.4; stroke-dasharray: 3 2; }
+.ttr-ticket-end { fill: var(--gold); stroke: #0c0907; stroke-width: 0.8; }
+.ttr-ticket-route { display: flex; flex: 1; flex-direction: column; gap: 6px; font-size: 12px; }
+.ttr-ticket-route b { color: var(--gold); font-size: 24px; font-weight: 400; line-height: 1; }
 .ttr-ticket-state { flex: 0 0 auto; color: var(--gold); font-size: 12px; }
 .ttr-ticket.dropped .ttr-ticket-state { color: var(--bad); }
 
 /* 终局 */
-.ttr-final { width: min(460px, 100%); }
-.ttr-standings { margin: 0; padding: 0; list-style: none; }
-.ttr-standings li {
-  display: flex; align-items: baseline; justify-content: space-between; gap: 10px;
-  padding: 8px 0; color: var(--text); border-bottom: var(--px) solid var(--panel-2);
-}
-.ttr-standings li.winner { color: var(--gold); }
-.ttr-score-detail { color: var(--gold); text-align: right; }
-.ttr-score-detail small { display: block; color: var(--muted); font-size: 12px; }
-.ttr-rematch { margin-top: 14px; color: var(--text); }
+.app-shell .gm-panel.ttr-final { width: min(560px, 100%); max-height: calc(100vh - 48px); overflow-y: auto; }
+.ttr-standings { display: flex; flex-direction: column; gap: 12px; margin: 0; padding: 0; list-style: none; }
+.ttr-standings > li { padding: 10px 12px; background: var(--panel-2); box-shadow: 0 0 0 var(--px) var(--edge); }
+.ttr-standings > li.winner { box-shadow: 0 0 0 var(--px) var(--edge), inset 0 0 0 var(--px) var(--gold); }
+.ttr-standing-head { display: flex; align-items: center; gap: 10px; }
+.ttr-standing-head strong { flex: 1; color: var(--text); font-size: 12px; font-weight: 400; }
+.ttr-standings > li.winner .ttr-standing-head strong { color: var(--gold); }
+.ttr-standing-total { color: var(--gold); font-size: 24px; line-height: 1; }
+.ttr-standing-detail { margin-top: 6px; color: var(--text); font-size: 12px; line-height: 1.6; }
+.ttr-standing-detail small { margin-left: 4px; color: var(--muted); }
+.ttr-standing-tickets { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0 0; padding: 0; list-style: none; }
+.ttr-standing-tickets li { padding: 2px 6px; font-size: 12px; background: var(--panel); }
+.ttr-standing-tickets li.done { color: var(--ok); }
+.ttr-standing-tickets li.failed { color: var(--bad); }
+.ttr-rematch { margin-top: 16px; color: var(--muted); font-size: 12px; }
+.ttr-screen .gm-panel-actions .quiet-button { flex: 0 0 auto; white-space: nowrap; }
 
 /* 聊天放在侧栏底部 */
-.ttr-chat { margin-top: 2px; }
 .ttr-chat .room-chat { margin: 0; }
 
 /* ---------- 响应式 ---------- */
-@media (max-width: 1120px) {
+@media (max-width: 1180px) {
   .ttr-layout { grid-template-columns: 1fr; }
   .ttr-side { display: grid; grid-template-columns: 1fr 1fr; align-items: start; }
-  .ttr-chat { grid-column: 1 / -1; }
-  .ttr-map { width: min(100%, 820px); margin: 0 auto; }
+  .ttr-chat, .ttr-log { grid-column: 1 / -1; }
 }
-@media (max-width: 560px) {
+@media (max-width: 760px) {
   .ttr-side { grid-template-columns: 1fr; }
   .ttr-topbar { flex-wrap: wrap; }
   .ttr-topbar-right { margin-left: auto; }
-  .ttr-faceup-row { justify-content: flex-start; }
-  .ttr-card, .ttr-deck { width: 40px; height: 56px; }
+  /* 手机上地图太小看不清：固定一个可读的宽度，左右滑动看 */
+  .ttr-map { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .ttr-map svg { width: 760px; max-width: none; }
+  .ttr-swipe-hint { display: inline; }
+  .ttr-ticket-map { flex-basis: 90px; width: 90px; }
 }

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState, type FormEvent } from "react";
-import { CAPACITY_OPTIONS, type Capacity, type GameCommand, type LobbyRoomSnapshot, type PublicRoomSummary } from "@ttr/game";
-import { cardArt, iconArt } from "./art.js";
+import { CAPACITY_OPTIONS, LOCOMOTIVE, TRAIN_COLORS, type Capacity, type GameCommand, type LobbyRoomSnapshot, type PublicRoomSummary } from "@ttr/game";
+import { iconArt } from "./art.js";
+import { CardFace } from "./Card.js";
 import { useConfirm } from "./confirm.js";
 import GameBoard from "./GameBoard.js";
 import GameRules from "./GameRules.js";
@@ -12,6 +13,9 @@ import { useVoice } from "./voice.js";
 type EntryMode = "create" | "join";
 
 const validRoomCode = /^[A-HJ-NP-Z2-9]{6}$/;
+
+/** 首页展示的车票牌：8 种颜色 + 火车头。 */
+const SHOWCASE = [...TRAIN_COLORS, LOCOMOTIVE] as const;
 
 // 线上游戏中心在站点根路径；本地开发时跑在 5175 端口。
 const CENTER_URL = import.meta.env.DEV ? `${window.location.protocol}//${window.location.hostname}:5175/` : "/";
@@ -249,8 +253,8 @@ function App() {
           </p>
           <img className="ttr-hero" src={iconArt.hero} alt="" />
           <div className="ttr-showcase" aria-hidden="true">
-            {(Object.keys(cardArt) as (keyof typeof cardArt)[]).map((color) => (
-              <span key={color} className="ttr-showcase-card" style={{ backgroundImage: `url(${cardArt[color]})` }} />
+            {SHOWCASE.map((color) => (
+              <span key={color} className="ttr-showcase-card"><CardFace color={color} /></span>
             ))}
           </div>
         </div>
@@ -409,7 +413,7 @@ function RoomView({
         <div>
           <div className="eyebrow"><span className="eyebrow-line" /> {room.status === "waiting" ? "等待大厅" : "对局已创建"}</div>
           <h1>{room.status === "waiting" ? "牌桌准备中。" : "好戏即将开始。"}</h1>
-          <p>{room.status === "waiting" ? "把房间码分享给朋友，等大家就位后开始。" : "房间状态已同步，下一步将接入完整棋盘。"}</p>
+          <p>{room.status === "waiting" ? "把房间码分享给朋友，等大家就位后开始。" : "对局马上开始。"}</p>
         </div>
         <div className="room-heading-actions">
           {isHost && <button className="quiet-button danger" type="button" onClick={onDissolve} disabled={busy}>解散房间</button>}
@@ -455,7 +459,7 @@ function RoomView({
                 </div>
               ))}
             </div>
-            <p className="field-hint">每回合限时 60 秒，超时自动替你选一个损失最小的放法。</p>
+            <p className="field-hint">每回合限时 90 秒，超时自动替你从牌库抽牌。</p>
             <div className="room-actions">
               {isHost ? (
                 <button className="primary-button" type="button" onClick={onStart} disabled={busy || room.members.length < 2}>

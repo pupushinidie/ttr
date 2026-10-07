@@ -27,8 +27,8 @@ function bot(name, onRoom) {
     }
     if (IDLE || !game || acting) return;
     const seat = room.members.find((member) => member.id === socket.id)?.playerId;
-    const me = game.players[game.currentPlayer];
-    if (!me || me.id !== seat) return;
+    // 开局选票大家同时进行，所以按「有没有合法行动」判断，而不是看轮到谁
+    if (!seat || legalActions(game, seat).length === 0) return;
     acting = true;
     await new Promise((resolve) => setTimeout(resolve, DELAY));
     try {
