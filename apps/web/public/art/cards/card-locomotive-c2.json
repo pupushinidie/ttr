@@ -1,0 +1,16 @@
+{
+  "description": "a single vintage steam locomotive engine in rainbow gradient colors, side view facing left, drawn on a cream parchment card with a thin dark outline border, the locomotive centered and large, flat pixel art, crisp, no text",
+  "image_size": {
+    "width": 120,
+    "height": 168
+  },
+  "no_background": false,
+  "outline": "lineless",
+  "seed": 602,
+  "endpoint": "/create-image-pixflux",
+  "usage": {
+    "type": "usd",
+    "usd": 0.007297828594843547
+  },
+  "seconds": 38.7
+}

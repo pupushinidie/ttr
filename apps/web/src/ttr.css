@@ -1,0 +1,231 @@
+/*
+ * 车票之旅（Ticket to Ride）的牌桌皮肤。叠在 app-pixel.css 的暗色像素皮肤之上。
+ * 主区域是 SVG 美国地图 + 右侧边栏（明牌区、手牌、目的地票、动作记录、聊天）。
+ * 颜色用 app-pixel.css 里定义的 --bg / --panel / --gold / --rim / --text 等变量。
+ */
+
+/* ---------- 首页主图与卡片展示 ---------- */
+.app-shell .ttr-hero {
+  display: block;
+  width: 100%;
+  max-width: 400px;
+  margin-top: 26px;
+  image-rendering: pixelated;
+}
+.app-shell .ttr-showcase { display: flex; align-items: center; gap: 8px; margin-top: 18px; }
+.app-shell .ttr-showcase-card {
+  width: 40px;
+  height: 56px;
+  background-size: cover;
+  image-rendering: pixelated;
+  box-shadow:
+    0 calc(var(--px) * -1) 0 0 var(--edge),
+    0 var(--px) 0 0 var(--edge),
+    calc(var(--px) * -1) 0 0 0 var(--edge),
+    var(--px) 0 0 0 var(--edge);
+}
+
+/* ---------- 牌桌整体 ---------- */
+.app-shell.ttr-game { width: min(1520px, calc(100% - 24px)); }
+
+.ttr-screen { display: flex; flex-direction: column; gap: 10px; padding-bottom: 18px; }
+
+.ttr-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 12px 2px;
+  border-bottom: var(--px) solid var(--rim);
+}
+.ttr-topbar .brand-name { font-size: 12px; }
+.ttr-topbar-right { display: flex; align-items: center; gap: 10px; }
+
+.ttr-turn { display: flex; align-items: center; gap: 12px; color: var(--muted); }
+.ttr-turn > span:first-child { color: var(--text); }
+.ttr-turn-who { display: inline-flex; align-items: center; gap: 7px; }
+.ttr-turn-who i { width: 10px; height: 10px; border-radius: 2px; }
+.ttr-turn-who.mine { color: var(--gold); }
+.ttr-timer { margin-left: 4px; padding: 1px 6px; color: var(--gold); background: var(--panel); }
+.ttr-timer.low { color: var(--bad); }
+
+/* ---------- 布局：地图 + 侧栏 ---------- */
+.ttr-layout { display: grid; grid-template-columns: minmax(0, 1fr) 336px; gap: 12px; align-items: start; }
+
+.ttr-map-area { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+
+.ttr-map {
+  width: 100%;
+  border: var(--px) solid var(--rim);
+  background: #15240f;
+  box-shadow:
+    0 calc(var(--px) * -1) 0 0 var(--edge),
+    0 var(--px) 0 0 var(--edge),
+    calc(var(--px) * -1) 0 0 0 var(--edge),
+    var(--px) 0 0 0 var(--edge),
+    inset var(--px) var(--px) 0 0 rgba(240, 192, 80, 0.35),
+    inset calc(var(--px) * -1) calc(var(--px) * -1) 0 0 var(--shade);
+}
+.ttr-map svg { display: block; width: 100%; height: auto; }
+.ttr-map-bg { fill: #15240f; }
+.ttr-map .ttr-route-hit { stroke: transparent; cursor: pointer; }
+.ttr-map .ttr-route-hit:hover { stroke: rgba(240, 192, 80, 0.35); }
+.ttr-city circle { fill: var(--gold); stroke: #0c0907; stroke-width: 0.5; }
+.ttr-city-label { fill: #e8e2cf; font-size: 3.1px; font-family: "Fusion Pixel", monospace; text-anchor: middle; paint-order: stroke; stroke: #0c0907; stroke-width: 0.5px; }
+
+.ttr-prompt { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: 34px; color: var(--text); }
+.ttr-prompt-buttons { display: inline-flex; align-items: center; gap: 8px; }
+.ttr-prompt-buttons .primary-button { width: auto; margin-top: 0; padding: 0 14px; min-height: 34px; }
+.ttr-prompt-buttons .quiet-button { padding: 6px 10px; }
+.ttr-color-pick { display: inline-flex; align-items: center; gap: 5px; }
+.ttr-swatch {
+  width: 20px; height: 20px; border-radius: 3px; cursor: pointer;
+  border: 0;
+  box-shadow:
+    0 calc(var(--px) * -1) 0 0 var(--edge),
+    0 var(--px) 0 0 var(--edge),
+    calc(var(--px) * -1) 0 0 0 var(--edge),
+    var(--px) 0 0 0 var(--edge);
+}
+.ttr-swatch.picked { outline: var(--px) solid var(--gold); outline-offset: 2px; }
+.ttr-swatch:disabled { opacity: 0.35; cursor: not-allowed; }
+.ttr-feedback { margin: 0; font-size: 12px; }
+.ttr-feedback.error { color: var(--bad); }
+
+/* ---------- 侧栏面板 ---------- */
+.ttr-side { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+
+.ttr-panel {
+  padding: 10px 12px;
+  color: var(--text);
+  background: var(--panel);
+  box-shadow:
+    0 calc(var(--px) * -1) 0 0 var(--edge),
+    0 var(--px) 0 0 var(--edge),
+    calc(var(--px) * -1) 0 0 0 var(--edge),
+    var(--px) 0 0 0 var(--edge),
+    inset var(--px) var(--px) 0 0 var(--rim),
+    inset calc(var(--px) * -1) calc(var(--px) * -1) 0 0 var(--shade);
+}
+.ttr-panel h3 { margin: 0 0 8px; color: var(--gold); font-size: 12px; font-weight: 400; }
+.ttr-panel h3 small { margin-left: 6px; color: var(--muted); font-size: 12px; }
+.ttr-muted { margin: 0; color: var(--muted); font-size: 12px; }
+
+/* 明牌区 */
+.ttr-faceup-row { display: flex; align-items: stretch; gap: 6px; }
+.ttr-card, .ttr-deck {
+  position: relative;
+  width: 44px; height: 62px; padding: 0; cursor: pointer;
+  border: 0; background: var(--panel-2);
+  box-shadow:
+    0 calc(var(--px) * -1) 0 0 var(--edge),
+    0 var(--px) 0 0 var(--edge),
+    calc(var(--px) * -1) 0 0 0 var(--edge),
+    var(--px) 0 0 0 var(--edge),
+    inset var(--px) var(--px) 0 0 var(--rim),
+    inset calc(var(--px) * -1) calc(var(--px) * -1) 0 0 var(--shade);
+}
+.ttr-card img { display: block; width: 100%; height: 100%; object-fit: cover; image-rendering: pixelated; }
+.ttr-card:disabled, .ttr-deck:disabled { opacity: 0.5; cursor: not-allowed; }
+.ttr-card:not(:disabled):hover, .ttr-deck:not(:disabled):hover { outline: var(--px) solid var(--gold); outline-offset: 1px; }
+.ttr-deck { display: grid; place-items: center; background: #5a3b22; }
+.ttr-deck span { color: var(--text); font-size: 12px; writing-mode: vertical-rl; letter-spacing: 2px; }
+.ttr-faceup-actions { margin-top: 8px; }
+.ttr-secondary-button {
+  width: 100%; min-height: 34px; cursor: pointer;
+  color: var(--text); background: var(--panel-2); border: 0;
+  box-shadow:
+    0 calc(var(--px) * -1) 0 0 var(--edge),
+    0 var(--px) 0 0 var(--edge),
+    calc(var(--px) * -1) 0 0 0 var(--edge),
+    var(--px) 0 0 0 var(--edge),
+    inset var(--px) var(--px) 0 0 var(--rim),
+    inset calc(var(--px) * -1) calc(var(--px) * -1) 0 0 var(--shade);
+}
+.ttr-secondary-button:hover:not(:disabled) { color: var(--gold); }
+.ttr-secondary-button:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* 手牌与目的地票 */
+.ttr-hand-row { display: flex; flex-wrap: wrap; gap: 6px; }
+.ttr-hand-card { position: relative; width: 44px; height: 62px; display: block; }
+.ttr-hand-card img { display: block; width: 100%; height: 100%; object-fit: cover; image-rendering: pixelated; box-shadow: 0 var(--px) 0 0 var(--edge), var(--px) 0 0 0 var(--edge), calc(var(--px) * -1) 0 0 0 var(--edge), 0 calc(var(--px) * -1) 0 0 var(--edge); }
+.ttr-hand-card b {
+  position: absolute; right: -3px; bottom: -3px; min-width: 16px; height: 16px;
+  display: grid; place-items: center; padding: 0 3px;
+  color: #0c0907; background: var(--gold); font-size: 12px; font-weight: 400;
+}
+.ttr-my-tickets ul { margin: 0; padding: 0; list-style: none; }
+.ttr-my-tickets li { padding: 3px 0; color: var(--text); font-size: 12px; border-bottom: var(--px) solid var(--panel-2); }
+.ttr-my-tickets li:last-child { border-bottom: 0; }
+
+/* 玩家列表 */
+.ttr-players .ttr-player {
+  display: flex; align-items: center; gap: 8px; padding: 5px 0;
+  border-bottom: var(--px) solid var(--panel-2); color: var(--text);
+}
+.ttr-players .ttr-player:last-child { border-bottom: 0; }
+.ttr-player.active { color: var(--gold); }
+.ttr-player.offline { opacity: 0.5; }
+.ttr-seat { width: 10px; height: 10px; flex: 0 0 10px; border-radius: 2px; }
+.ttr-player strong { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 400; }
+.ttr-player strong small { margin-left: 5px; color: var(--muted); }
+.ttr-trains { flex: 0 0 auto; color: var(--muted); }
+.ttr-score { flex: 0 0 auto; min-width: 22px; text-align: right; color: var(--gold); }
+
+/* 动作记录 */
+.ttr-log { max-height: 200px; overflow-y: auto; }
+.ttr-log ul { margin: 0; padding: 0; list-style: none; }
+.ttr-log li { padding: 3px 0; color: var(--muted); font-size: 12px; border-bottom: var(--px) solid var(--panel-2); }
+.ttr-log li:last-child { border-bottom: 0; }
+
+/* 目的地票弹窗 */
+.ttr-ticket-modal { width: min(480px, 100%); }
+.ttr-ticket-list { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; }
+.ttr-ticket {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  padding: 10px 12px; cursor: pointer; border: 0;
+  color: var(--text); background: var(--panel-2);
+  box-shadow:
+    0 calc(var(--px) * -1) 0 0 var(--edge),
+    0 var(--px) 0 0 var(--edge),
+    calc(var(--px) * -1) 0 0 0 var(--edge),
+    var(--px) 0 0 0 var(--edge),
+    inset var(--px) var(--px) 0 0 var(--rim),
+    inset calc(var(--px) * -1) calc(var(--px) * -1) 0 0 var(--shade);
+}
+.ttr-ticket.kept { --rim: var(--gold); }
+.ttr-ticket.dropped { opacity: 0.55; }
+.ttr-ticket-route { flex: 1; text-align: left; font-size: 12px; }
+.ttr-ticket-state { flex: 0 0 auto; color: var(--gold); font-size: 12px; }
+.ttr-ticket.dropped .ttr-ticket-state { color: var(--bad); }
+
+/* 终局 */
+.ttr-final { width: min(460px, 100%); }
+.ttr-standings { margin: 0; padding: 0; list-style: none; }
+.ttr-standings li {
+  display: flex; align-items: baseline; justify-content: space-between; gap: 10px;
+  padding: 8px 0; color: var(--text); border-bottom: var(--px) solid var(--panel-2);
+}
+.ttr-standings li.winner { color: var(--gold); }
+.ttr-score-detail { color: var(--gold); text-align: right; }
+.ttr-score-detail small { display: block; color: var(--muted); font-size: 12px; }
+.ttr-rematch { margin-top: 14px; color: var(--text); }
+
+/* 聊天放在侧栏底部 */
+.ttr-chat { margin-top: 2px; }
+.ttr-chat .room-chat { margin: 0; }
+
+/* ---------- 响应式 ---------- */
+@media (max-width: 1120px) {
+  .ttr-layout { grid-template-columns: 1fr; }
+  .ttr-side { display: grid; grid-template-columns: 1fr 1fr; align-items: start; }
+  .ttr-chat { grid-column: 1 / -1; }
+  .ttr-map { width: min(100%, 820px); margin: 0 auto; }
+}
+@media (max-width: 560px) {
+  .ttr-side { grid-template-columns: 1fr; }
+  .ttr-topbar { flex-wrap: wrap; }
+  .ttr-topbar-right { margin-left: auto; }
+  .ttr-faceup-row { justify-content: flex-start; }
+  .ttr-card, .ttr-deck { width: 40px; height: 56px; }
+}

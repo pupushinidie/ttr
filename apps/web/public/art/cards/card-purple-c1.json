@@ -1,0 +1,16 @@
+{
+  "description": "a single vintage railway boxcar in purple, side view facing left, drawn on a cream parchment card with a thin dark outline border, the boxcar centered and large, flat pixel art, crisp, no text",
+  "image_size": {
+    "width": 120,
+    "height": 168
+  },
+  "no_background": false,
+  "outline": "lineless",
+  "seed": 501,
+  "endpoint": "/create-image-pixflux",
+  "usage": {
+    "type": "usd",
+    "usd": 0.0065067435900370285
+  },
+  "seconds": 15.7
+}
