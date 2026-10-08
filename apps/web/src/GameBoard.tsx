@@ -28,6 +28,8 @@ interface GameBoardProps {
   readonly notice: string;
   readonly brand: ReactNode;
   readonly connection: ReactNode;
+  /** 顶栏的白天 / 夜间切换按钮。 */
+  readonly themeToggle: ReactNode;
   readonly chat: ReactNode;
   readonly onCommand: (command: GameCommand) => void;
   readonly onRematch: (accept: boolean) => void;
@@ -211,7 +213,7 @@ function describeEvent(event: GameEvent, name: (id: string) => string): string |
   }
 }
 
-function GameBoard({ room, busy, error, notice, brand, connection, chat, onCommand, onRematch, onDissolve }: GameBoardProps) {
+function GameBoard({ room, busy, error, notice, brand, connection, themeToggle, chat, onCommand, onRematch, onDissolve }: GameBoardProps) {
   const game = room.game!;
   const member = room.members.find((candidate) => candidate.id === socket.id);
   const myId = member?.playerId ?? "";
@@ -321,6 +323,7 @@ function GameBoard({ room, busy, error, notice, brand, connection, chat, onComma
           {game.phase !== "finished" && secondsLeft !== null && <b className={secondsLeft <= 10 ? "ttr-timer low" : "ttr-timer"}>{secondsLeft}s</b>}
         </div>
         <div className="ttr-topbar-right">
+          {themeToggle}
           <GameRules />
           {isHost && <button className="quiet-button danger" type="button" onClick={onDissolve}>解散</button>}
           {connection}
