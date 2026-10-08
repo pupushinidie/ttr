@@ -40,7 +40,7 @@ npm run typecheck
 
 PixelLab API，密钥只在 `~/.config/pixellab/api_key`，不进仓库。每次调用记进 `art/ledger.jsonl`，`BUDGET_USD` 设上限。生成的原图和中间文件在被 gitignore 的 `art/out/`。
 
-- `generate_ttr.py`：首页主图（`ui/hero.png`）；`python generate_ttr.py sprites` 出牌面上的透明底车厢小图（每种两个候选，放在 `art/out/sprites/`，挑好后复制成 `apps/web/public/art/cards/sprite-{color}.png`）。PixelLab 免费档同一时间只能跑 1 个生成。
+- `generate_ttr.py`：首页主图（两个候选出到 `art/out/candidates/ui/`，挑好后复制成 `ui/hero.png`）；`python generate_ttr.py sprites` 出牌面上的透明底车厢小图（每种两个候选，放在 `art/out/sprites/`，挑好后复制成 `apps/web/public/art/cards/sprite-{color}.png`）。PixelLab 免费档同一时间只能跑 1 个生成。
 - `pixellab.py`：PixelLab API 客户端（`/create-image-pixflux`），调用即记进 ledger。
 
 ## 画面：白天版和夜间版

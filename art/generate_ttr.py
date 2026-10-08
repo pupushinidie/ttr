@@ -1,17 +1,15 @@
 """车票之旅（Ticket to Ride）的 PixelLab 美术：首页主图 + 牌面上的透明底车厢小图。
 
-主图直接写进 apps/web/public/art/ui/（Vite 当静态资源在 /art/ 下服务）；车厢小图先出到 art/out/sprites/，
-每种两个候选，挑好后复制成 apps/web/public/art/cards/sprite-<颜色>.png。牌面底色由前端 CSS 画。
+主图的两个候选出到 art/out/candidates/ui/，挑好后复制成 apps/web/public/art/ui/hero.png；车厢小图先出到 art/out/sprites/，
+每种两个候选，挑好后复制成 apps/web/public/art/cards/sprite-<颜色>.png。public 里只放正式文件。牌面底色由前端 CSS 画。
 用法：python generate_ttr.py [hero] [sprites]
 """
 from __future__ import annotations
 
-import pathlib
 import sys
 
 import pixellab
 
-WEB_PUBLIC = pixellab.ART.parent / "apps" / "web" / "public" / "art"
 
 def hero(seed: int) -> None:
     prompt = (
@@ -25,7 +23,7 @@ def hero(seed: int) -> None:
         "no_background": False,
         "outline": "lineless",
         "seed": seed,
-    }, WEB_PUBLIC / "ui")
+    }, pixellab.ART / "out" / "candidates" / "ui")
 
 
 # 透明底的车厢小图，叠在 CSS 画的彩色牌面上（牌面颜色由前端控制，白色/黑色也看得清）。
