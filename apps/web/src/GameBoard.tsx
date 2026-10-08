@@ -19,6 +19,7 @@ import {
 } from "@ttr/game";
 import { CARD_COLOR_LABEL, COLOR_HEX, CardFace } from "./Card.js";
 import GameRules from "./GameRules.js";
+import { GameRoomMenu, SpectateBar } from "./RoomExtras.js";
 import { socket } from "./socket.js";
 
 interface GameBoardProps {
@@ -34,6 +35,11 @@ interface GameBoardProps {
   readonly onCommand: (command: GameCommand) => void;
   readonly onRematch: (accept: boolean) => void;
   readonly onDissolve: () => void;
+  /** 观战时从这位玩家的座位看。 */
+  readonly watchId: string;
+  readonly onWatch: (playerId: string) => void;
+  /** 观战的人离开。 */
+  readonly onLeave: () => void;
 }
 
 /** 座位色：避开 8 种线路色，铺好的线路一眼能和没铺的分开。 */
@@ -213,22 +219,27 @@ function describeEvent(event: GameEvent, name: (id: string) => string): string |
   }
 }
 
-function GameBoard({ room, busy, error, notice, brand, connection, themeToggle, chat, onCommand, onRematch, onDissolve }: GameBoardProps) {
+function GameBoard({ room, busy, error, notice, brand, connection, themeToggle, chat, onCommand, onRematch, onDissolve, watchId, onWatch, onLeave }: GameBoardProps) {
   const game = room.game!;
   const member = room.members.find((candidate) => candidate.id === socket.id);
-  const myId = member?.playerId ?? "";
+  // 观战的人没有座位：牌桌按 watchId 那位玩家的座位摆（me 就是他），但什么都不能点，也不叫「你」。
+  const spectating = !member;
+  const myId = member?.playerId ?? watchId;
+  const selfId = spectating ? "" : myId;
   const isHost = member?.isHost ?? false;
   const me = game.players.find((player) => player.id === myId);
   const current = game.players[game.currentPlayer];
   const choosingStart = game.phase === "tickets";
-  const myTurn = game.phase === "playing" && current?.id === myId;
+  const myTurn = !spectating && game.phase === "playing" && current?.id === myId;
+  // 观战没开「看手牌」时，被看的那位玩家的手牌和目的地票只看得到张数。
+  const handHidden = spectating && !room.access.spectatorsSeeAll;
   const secondsLeft = useCountdown(room);
   // 「对局已开始」这类提示只留到第一步动作，之后不再一直挂在棋盘上
   const firstVersion = useRef(game.version);
   const shownNotice = game.version === firstVersion.current ? notice : "";
 
   const seatColor = (playerId: string) => SEAT_COLORS[Math.max(0, game.players.findIndex((player) => player.id === playerId)) % SEAT_COLORS.length]!;
-  const nameOf = (playerId: string) => (playerId === myId ? "你" : game.players.find((player) => player.id === playerId)?.name ?? "?");
+  const nameOf = (playerId: string) => (playerId === selfId ? "你" : game.players.find((player) => player.id === playerId)?.name ?? "?");
   const connected = (playerId: string) => room.members.find((candidate) => candidate.playerId === playerId)?.connected ?? false;
 
   const [claim, setClaim] = useState<{ routeId: string; color: TrainColor | null } | null>(null);
@@ -300,7 +311,7 @@ function GameBoard({ room, busy, error, notice, brand, connection, themeToggle, 
 
   let prompt: string;
   if (game.phase === "finished") prompt = "游戏结束";
-  else if (choosingStart) prompt = me && me.pendingTickets.length > 0 ? "开局：从 3 张目的地票里至少留 2 张（大家同时选）" : "你选好了，等其他玩家选完目的地票…";
+  else if (choosingStart) prompt = spectating ? "开局：大家在同时挑目的地票" : me && me.pendingTickets.length > 0 ? "开局：从 3 张目的地票里至少留 2 张（大家同时选）" : "你选好了，等其他玩家选完目的地票…";
   else if (myTurn && pendingTicketChoice) prompt = "选目的地票：至少保留 1 张";
   else if (myTurn && pendingSecondDraw) prompt = "再抽一张：点牌库或明牌（明牌火车头这次不能拿）";
   else if (claim && claimRoute) prompt = `铺 ${cityName(claimRoute.a)}–${cityName(claimRoute.b)}（${claimRoute.length} 节，+${ROUTE_SCORES[claimRoute.length]} 分）`;
@@ -325,6 +336,7 @@ function GameBoard({ room, busy, error, notice, brand, connection, themeToggle, 
         <div className="ttr-topbar-right">
           {themeToggle}
           <GameRules />
+          <GameRoomMenu room={room} />
           {isHost && <button className="quiet-button danger" type="button" onClick={onDissolve}>解散</button>}
           {connection}
         </div>
@@ -385,7 +397,8 @@ function GameBoard({ room, busy, error, notice, brand, connection, themeToggle, 
         </section>
 
         <aside className="ttr-side">
-          <Players game={game} myId={myId} seatColor={seatColor} connected={connected} />
+          {spectating && <SpectateBar room={room} watchId={myId} onWatch={onWatch} onLeave={onLeave} />}
+          <Players game={game} myId={selfId} seatColor={seatColor} connected={connected} />
           <section className="ttr-panel ttr-faceup">
             <h3>抽车票 <small>{game.remainingCards !== undefined ? `牌库剩 ${game.remainingCards} 张` : ""}</small></h3>
             <div className="ttr-faceup-row">
@@ -417,8 +430,8 @@ function GameBoard({ room, busy, error, notice, brand, connection, themeToggle, 
               抽 3 张目的地票{game.remainingTickets !== undefined ? `（票堆剩 ${game.remainingTickets}）` : ""}
             </button>
           </section>
-          {me && <MyHand player={me} />}
-          {me && <MyTickets game={game} player={me} onHover={setHighlight} />}
+          {me && <MyHand player={me} owner={spectating ? me.name : null} hidden={handHidden} />}
+          {me && <MyTickets game={game} player={me} onHover={setHighlight} owner={spectating ? me.name : null} hidden={handHidden && game.phase !== "finished"} />}
           <section className="ttr-panel ttr-log">
             <h3>动作记录</h3>
             {log.length === 0 ? <p className="ttr-muted">还没有动作。</p> : <ul>{log.map((line) => <li key={line.key}>{line.text}</li>)}</ul>}
@@ -427,7 +440,7 @@ function GameBoard({ room, busy, error, notice, brand, connection, themeToggle, 
         </aside>
       </div>
 
-      {choosingStart && me && me.pendingTickets.length > 0 && (
+      {!spectating && choosingStart && me && me.pendingTickets.length > 0 && (
         <TicketModal
           title="开局目的地票"
           hint={`至少保留 ${game.config.startTicketsKeepMin} 张，其他玩家也在同时选`}
@@ -447,7 +460,7 @@ function GameBoard({ room, busy, error, notice, brand, connection, themeToggle, 
           onConfirm={(keep) => onCommand({ type: "KEEP_TICKETS", keep })}
         />
       )}
-      {game.phase === "finished" && <FinalDialog game={game} room={room} myId={myId} seatColor={seatColor} onRematch={onRematch} />}
+      {game.phase === "finished" && <FinalDialog game={game} room={room} myId={selfId} seatColor={seatColor} spectating={spectating} onRematch={onRematch} onLeave={onLeave} />}
     </div>
   );
 }
@@ -592,14 +605,15 @@ function TicketModal({ title, hint, drawn, minKeep, busy, onConfirm }: { title: 
 
 const HAND_ORDER: readonly CardColor[] = [...TRAIN_COLORS, LOCOMOTIVE];
 
-function MyHand({ player }: { player: Player }) {
+/** owner：观战时是被看的那位玩家的名字（自己看时为 null）；hidden：观战看不到手牌，只显示张数。 */
+function MyHand({ player, owner, hidden }: { player: Player; owner: string | null; hidden: boolean }) {
   const groups = HAND_ORDER
     .map((color) => [color, player.trainCards.filter((card) => card === color).length] as const)
     .filter(([, count]) => count > 0);
   return (
     <section className="ttr-panel ttr-hand">
-      <h3>我的手牌 <small>{player.trainCards.length} 张 · 火车 {player.trainsLeft} 辆</small></h3>
-      {groups.length === 0 ? <p className="ttr-muted">还没有车票。</p> : (
+      <h3>{owner ? `${owner}的手牌` : "我的手牌"} <small>{player.handCount ?? player.trainCards.length} 张 · 火车 {player.trainsLeft} 辆</small></h3>
+      {hidden ? <p className="ttr-muted">观战看不到手牌。</p> : groups.length === 0 ? <p className="ttr-muted">还没有车票。</p> : (
         <div className="ttr-hand-row">
           {groups.map(([color, count]) => (
             <span className="ttr-hand-card" key={color} title={`${CARD_COLOR_LABEL[color]} × ${count}`}>
@@ -613,12 +627,20 @@ function MyHand({ player }: { player: Player }) {
   );
 }
 
-function MyTickets({ game, player, onHover }: { game: GameState; player: Player; onHover: (pair: { a: string; b: string } | null) => void }) {
+function MyTickets({ game, player, onHover, owner, hidden }: {
+  game: GameState;
+  player: Player;
+  onHover: (pair: { a: string; b: string } | null) => void;
+  /** 观战时是被看的那位玩家的名字。 */
+  owner: string | null;
+  /** 观战看不到目的地票，只显示张数。 */
+  hidden: boolean;
+}) {
   const done = player.tickets.filter((id) => { const t = ticketOf(id); return t && linked(game.claimedRoutes, player.id, t.a, t.b); }).length;
   return (
     <section className="ttr-panel ttr-my-tickets">
-      <h3>我的目的地票 <small>{player.tickets.length > 0 ? `已连通 ${done} / ${player.tickets.length}` : ""}</small></h3>
-      {player.tickets.length === 0 ? <p className="ttr-muted">还没有目的地票。</p> : (
+      <h3>{owner ? `${owner}的目的地票` : "我的目的地票"} <small>{hidden ? `${player.ticketCount ?? 0} 张` : player.tickets.length > 0 ? `已连通 ${done} / ${player.tickets.length}` : ""}</small></h3>
+      {hidden ? <p className="ttr-muted">观战看不到目的地票，终局才公开。</p> : player.tickets.length === 0 ? <p className="ttr-muted">还没有目的地票。</p> : (
         <ul onMouseLeave={() => onHover(null)}>
           {player.tickets.map((ticketId) => {
             const ticket = ticketOf(ticketId);
@@ -673,7 +695,15 @@ function Players({ game, myId, seatColor, connected }: { game: GameState; myId: 
 
 // ---------- 终局 ----------
 
-function FinalDialog({ game, room, myId, seatColor, onRematch }: { game: GameState; room: LobbyRoomSnapshot; myId: string; seatColor: (id: string) => string; onRematch: (accept: boolean) => void }) {
+function FinalDialog({ game, room, myId, seatColor, spectating, onRematch, onLeave }: {
+  game: GameState;
+  room: LobbyRoomSnapshot;
+  myId: string;
+  seatColor: (id: string) => string;
+  spectating: boolean;
+  onRematch: (accept: boolean) => void;
+  onLeave: () => void;
+}) {
   const result = game.finalResult!;
   const accepted = room.rematch?.acceptedIds.includes(socket.id ?? "") ?? false;
   const rows = [...result.scores].sort((a, b) => b.score - a.score);
@@ -715,7 +745,14 @@ function FinalDialog({ game, room, myId, seatColor, onRematch }: { game: GameSta
             );
           })}
         </ol>
-        {room.rematch && (
+        {spectating ? (
+          <div className="ttr-rematch">
+            <span>{room.rematch ? `等玩家决定要不要再来一局（${room.rematch.acceptedIds.length}/${room.members.length} 人同意）` : "对局结束"}</span>
+            <div className="gm-panel-actions">
+              <button className="quiet-button" type="button" onClick={onLeave}>离开观战</button>
+            </div>
+          </div>
+        ) : room.rematch && (
           <div className="ttr-rematch">
             <span>再来一局？还剩 {Math.ceil(room.rematch.remainingMs / 1000)} 秒（{room.rematch.acceptedIds.length}/{room.members.length} 人同意）</span>
             <div className="gm-panel-actions">
