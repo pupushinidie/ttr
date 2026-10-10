@@ -511,7 +511,7 @@ function RoomView({
                 </div>
               ))}
             </div>
-            <p className="field-hint">每回合限时 90 秒，超时自动替你从牌库抽牌。</p>
+            <p className="field-hint">每回合限时 90 秒，超时自动替你抽牌；连续超时 2 次由人机托管。</p>
             <RoomSettingsPanel room={room} />
             <SeatSwitch room={room} />
             <div className="room-actions">

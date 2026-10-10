@@ -11,6 +11,17 @@ export {
 export type { NewPlayer } from "./engine.js";
 export { botAdvice, botCommand, routeLabel } from "./bot.js";
 export type { BotAdvice } from "./bot.js";
+export {
+  anchorVisible,
+  createPracticeGame,
+  createTutorialGame,
+  sameCommand,
+  TUTORIAL_FINAL_STEP,
+  TUTORIAL_RIVALS,
+  TUTORIAL_SELF,
+  TUTORIAL_STEPS,
+} from "./tutorial.js";
+export type { TutorialFace, TutorialFollowUp, TutorialStep } from "./tutorial.js";
 export { createRng } from "./rng.js";
 export type { Rng } from "./rng.js";
 export * from "./map.js";

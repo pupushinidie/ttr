@@ -451,7 +451,7 @@ function GameBoard({ room, busy, error, notice, brand, connection, themeToggle, 
         </aside>
       </div>
 
-      {!spectating && choosingStart && me && me.pendingTickets.length > 0 && (
+      {!spectating && !autoPlaying && choosingStart && me && me.pendingTickets.length > 0 && (
         <TicketModal
           title="开局目的地票"
           hint={`至少保留 ${game.config.startTicketsKeepMin} 张，其他玩家也在同时选`}
@@ -461,7 +461,7 @@ function GameBoard({ room, busy, error, notice, brand, connection, themeToggle, 
           onConfirm={(keep) => onCommand({ type: "KEEP_TICKETS", keep })}
         />
       )}
-      {myTurn && pendingTicketChoice && game.pending?.type === "ticketChoice" && (
+      {myTurn && !autoPlaying && pendingTicketChoice && game.pending?.type === "ticketChoice" && (
         <TicketModal
           title="抽到的目的地票"
           hint={`至少保留 ${game.config.ticketsKeepMin} 张；没完成的票终局要倒扣分`}
