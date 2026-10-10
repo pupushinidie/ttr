@@ -31,8 +31,8 @@ interface StepBase {
   readonly noteTouch?: string;
   /**
    * 高亮哪个元素：网页里 data-tutorial 的值。
-   * 固定的有 map、players、draw、deck、draw-tickets、my-hand、my-tickets、claim-confirm、ticket-confirm、last-round、hint；
-   * 带参数的：route:<线路 id>、faceup:<下标>、ticket:<下标>（选票框里第几张）、final:<玩家>（结算框里那一行）。
+   * 固定的有 map、players、draw、faceup-row、deck、draw-tickets、my-hand、my-tickets、claim-confirm、ticket-confirm、last-round、hint；
+   * 带参数的：route:<线路 id>、player:<玩家>（玩家栏那一行）、faceup:<下标>、ticket:<下标>（选票框里第几张）、final:<玩家>（结算框里那一行）。
    */
   readonly anchor?: string;
   readonly face?: TutorialFace;
@@ -82,7 +82,7 @@ export const TUTORIAL_STEPS: readonly TutorialStep[] = [
     noteTouch: "要经过华盛顿、罗利到亚特兰大。地图可以左右滑动。",
   },
   {
-    kind: "info", id: "turn", lesson: "每回合三选一", anchor: "draw",
+    kind: "info", id: "turn", lesson: "每回合三选一", anchor: "faceup-row",
     say: "每回合三选一：抽车票、铺线路、抽目的地票。",
     note: "车票就是火车卡：8 种颜色，加上万能的火车头。抽车票一回合抽 2 张。",
   },
@@ -117,7 +117,7 @@ export const TUTORIAL_STEPS: readonly TutorialStep[] = [
     note: "交出和线路一样长、一样颜色的车票：2 节就交 2 张橙色。",
   },
   {
-    kind: "info", id: "route-score", lesson: "路段分", anchor: "players", face: "happy",
+    kind: "info", id: "route-score", lesson: "路段分", anchor: `player:${TUTORIAL_SELF}`, face: "happy",
     say: "铺下 2 节得 2 分，线路越长越划算。",
     note: "1 到 6 节分别得 1、2、4、7、10、15 分，铺下就加到分数里。",
   },
@@ -287,7 +287,10 @@ export function anchorVisible(state: GameState, anchor: string, viewer: string):
     case "draw":
     case "my-hand":
     case "my-tickets":
+    case "faceup-row":
       return true;
+    case "player":
+      return state.players.some((player) => player.id === arg);
     case "deck":
       return state.deck.length + state.discard.length > 0;
     case "draw-tickets":

@@ -344,3 +344,9 @@
   .ttr-swipe-hint { display: inline; }
   .ttr-ticket-map { flex-basis: 90px; width: 90px; }
 }
+
+/* ---------- 新手教程 / 提示 ---------- */
+.ttr-hint.on { color: var(--gold); }
+/* 教程剧本进行中咕噜嘎会讲每一步，动作记录只留最新两条；练习局留三四条 */
+.tut-script .ttr-log ul { max-height: 42px; overflow: hidden; }
+.tut-practice .ttr-log ul { max-height: 86px; overflow: hidden; }

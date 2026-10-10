@@ -402,8 +402,8 @@ function playTurn(ctx: Ctx): BotAdvice | null {
     }
     if (best && (lastTurn || best.done.length > 0 || plan.routes.includes(best.route) || best.route.length >= 3 || available <= 2)) {
       const why = best.done.length > 0
-        ? `铺 ${routeLabel(best.route)}：连通目的地票 ${best.done.map(ticketLabel).join("、")}，从倒扣变成加分。`
-        : `铺 ${routeLabel(best.route)}：快结束了，抓紧把火车换成分（+${ROUTE_SCORES[best.route.length]} 分）。`;
+        ? `铺${routeLabel(best.route)}：连通目的地票 ${best.done.map(ticketLabel).join("、")}，从倒扣变成加分。`
+        : `铺${routeLabel(best.route)}：快结束了，抓紧把火车换成分（+${ROUTE_SCORES[best.route.length]} 分）。`;
       return claimAdvice(best.route, best.color, why);
     }
   }
@@ -427,8 +427,8 @@ function playTurn(ctx: Ctx): BotAdvice | null {
   if (bestClaim) {
     const { route, color, done } = bestClaim;
     const why = done.length > 0
-      ? `铺 ${routeLabel(route)}：这一段铺完就连通了 ${done.map(ticketLabel).join("、")}。`
-      : `铺 ${routeLabel(route)}：它在你的目的地票路线上，牌够了就先占住，免得被别人抢走（+${ROUTE_SCORES[route.length]} 分）。`;
+      ? `铺${routeLabel(route)}：这一段铺完就连通了 ${done.map(ticketLabel).join("、")}。`
+      : `铺${routeLabel(route)}：它在你的目的地票路线上，牌够了就先占住，免得被别人抢走（+${ROUTE_SCORES[route.length]} 分）。`;
     return claimAdvice(route, color, why);
   }
 
@@ -444,7 +444,7 @@ function playTurn(ctx: Ctx): BotAdvice | null {
       if (route.length > ctx.hand[color]) continue; // 不为这种线路花火车头
       if (!best || route.length > best.route.length) best = { route, color };
     }
-    if (best) return claimAdvice(best.route, best.color, `铺 ${routeLabel(best.route)}：手牌攒多了，用目的地票用不上的颜色换 ${ROUTE_SCORES[best.route.length]} 分。`);
+    if (best) return claimAdvice(best.route, best.color, `铺${routeLabel(best.route)}：手牌攒多了，用目的地票用不上的颜色换 ${ROUTE_SCORES[best.route.length]} 分。`);
   }
 
   // 票都连通了（或连不通了）：时间够就再抽目的地票
@@ -467,7 +467,7 @@ function playTurn(ctx: Ctx): BotAdvice | null {
     if (target) {
       const color = claimColor(ctx, target.route);
       if (color && (target.route.length >= 4 || endgame || target.route.length >= me.trainsLeft - 2)) {
-        return claimAdvice(target.route, color, `铺 ${routeLabel(target.route)}：目的地票都处理完了，铺长线路最划算（+${ROUTE_SCORES[target.route.length]} 分）。`);
+        return claimAdvice(target.route, color, `铺${routeLabel(target.route)}：目的地票都处理完了，铺长线路最划算（+${ROUTE_SCORES[target.route.length]} 分）。`);
       }
       return drawFor(ctx, [target.route], false);
     }

@@ -21,6 +21,9 @@ import { CARD_COLOR_LABEL, COLOR_HEX, CardFace } from "./Card.js";
 import GameRules from "./GameRules.js";
 import { GameRoomMenu, SpectateBar } from "./RoomExtras.js";
 import { socket } from "./socket.js";
+import { Coach, TipToast } from "./tutorial/Coach.js";
+import { useFirstTimeTips } from "./tutorial/tips.js";
+import { detectTips, GAME_ID, hintFor, TIPS, type Hint } from "./tutorialGame.js";
 
 interface GameBoardProps {
   readonly room: LobbyRoomSnapshot;
@@ -42,6 +45,20 @@ interface GameBoardProps {
   readonly onWatch: (playerId: string) => void;
   /** 观战的人离开。 */
   readonly onLeave: () => void;
+  /** 自己在 room.members 里的 id；默认是 socket.id，教程里传固定值。 */
+  readonly selfMemberId?: string;
+  /**
+   * online：真实对局（默认）；
+   * tutorial：新手教程的剧本进行中（咕噜嘎在讲，不出提示和小贴士）；
+   * practice：教程后的练习局（随时能看提示）。
+   */
+  readonly mode?: "online" | "tutorial" | "practice";
+  /** 结算框里替代「再来一局」的按钮（练习局用）。 */
+  readonly finalActions?: ReactNode;
+  /** 先不弹结算框（教程里先讲完最后一回合）。 */
+  readonly finalHidden?: boolean;
+  /** 界面上「先选再确定」的当前选择（教程按它移动高亮）：claim:<线路 id>、keep:<保留的下标>，没有是 none。 */
+  readonly onSelection?: (selection: string) => void;
 }
 
 /** 座位色：避开 8 种线路色，铺好的线路一眼能和没铺的分开。 */
@@ -221,9 +238,9 @@ function describeEvent(event: GameEvent, name: (id: string) => string): string |
   }
 }
 
-function GameBoard({ room, busy, error, notice, brand, connection, themeToggle, chat, onCommand, onRematch, onAuto, onDissolve, watchId, onWatch, onLeave }: GameBoardProps) {
+function GameBoard({ room, busy, error, notice, brand, connection, themeToggle, chat, onCommand, onRematch, onAuto, onDissolve, watchId, onWatch, onLeave, selfMemberId, mode: boardMode = "online", finalActions, finalHidden = false, onSelection }: GameBoardProps) {
   const game = room.game!;
-  const member = room.members.find((candidate) => candidate.id === socket.id);
+  const member = room.members.find((candidate) => candidate.id === (selfMemberId ?? socket.id));
   // 观战的人没有座位：牌桌按 watchId 那位玩家的座位摆（me 就是他），但什么都不能点，也不叫「你」。
   const spectating = !member;
   const myId = member?.playerId ?? watchId;
@@ -249,6 +266,10 @@ function GameBoard({ room, busy, error, notice, brand, connection, themeToggle, 
 
   const [claim, setClaim] = useState<{ routeId: string; color: TrainColor | null } | null>(null);
   useEffect(() => setClaim(null), [game.version]);
+  // 选票框里现在留着哪几张（教程按它移动高亮）
+  const [ticketKeep, setTicketKeep] = useState<string | null>(null);
+  const selection = claim ? `claim:${claim.routeId}` : ticketKeep ? `keep:${ticketKeep}` : "none";
+  useEffect(() => onSelection?.(selection), [selection]);
   /** 鼠标停在某张目的地票上时，地图上标出它的两座城市。 */
   const [highlight, setHighlight] = useState<{ a: string; b: string } | null>(null);
 
@@ -324,13 +345,31 @@ function GameBoard({ room, busy, error, notice, brand, connection, themeToggle, 
   else if (myTurn) prompt = "轮到你了：抽 2 张车票、抽目的地票，或在地图上点一条亮起的线路铺路";
   else prompt = `等待 ${current?.name ?? ""} 行动…`;
 
+  // 「提示」：只有自己和人机时（练习局，或一个人加人机开的房间）；让人机从你的位置算一步
+  const botsOnly = room.members.every((candidate) => candidate.id === member?.id || candidate.bot);
+  const canHint = !spectating && !autoPlaying && myTurn && (boardMode === "practice" || (boardMode === "online" && botsOnly));
+  const [hint, setHint] = useState<{ version: number; hint: Hint } | null>(null);
+  const shownHint = hint && hint.version === game.version && canHint ? hint.hint : null;
+  const toggleHint = () => setHint((currentHint) => (currentHint && currentHint.version === game.version ? null : { version: game.version, hint: hintFor(game, myId) }));
+  useEffect(() => {
+    if (!canHint) return;
+    const onKey = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement | null;
+      if (target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA")) return;
+      if (event.key.toLowerCase() === "h") toggleHint();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [canHint, game.version]);
+  const tips = useFirstTimeTips(GAME_ID, game.version, () => detectTips(game, myId), TIPS, boardMode === "online" && !spectating);
+
   return (
     <div className="ttr-screen">
       <header className="ttr-topbar">
         {brand}
         <div className="ttr-turn">
           {choosingStart ? <span>开局选票</span> : <span>第 {game.turn} 回合</span>}
-          {game.finalRound && game.phase !== "finished" && <span className="ttr-last-round">最后一轮</span>}
+          {game.finalRound && game.phase !== "finished" && <span className="ttr-last-round" data-tutorial="last-round">最后一轮</span>}
           {game.phase === "playing" && current && (
             <span className={myTurn ? "ttr-turn-who mine" : "ttr-turn-who"}>
               <i style={{ background: seatColor(current.id) }} />
@@ -352,6 +391,11 @@ function GameBoard({ room, busy, error, notice, brand, connection, themeToggle, 
         <section className="ttr-map-area">
           <div className={myTurn ? "ttr-prompt mine" : "ttr-prompt"} role="status">
             <span className="ttr-prompt-text">{prompt}</span>
+            {canHint && !claim && (
+              <span className="ttr-prompt-buttons">
+                <button className={shownHint ? "quiet-button ttr-hint on" : "quiet-button ttr-hint"} type="button" data-tutorial="hint" onClick={toggleHint}>提示</button>
+              </span>
+            )}
             {autoPlaying && (
               <span className="ttr-prompt-buttons">
                 <button className="quiet-button ttr-auto-cancel" type="button" onClick={() => onAuto(false)} data-tutorial="cancel-auto">取消托管</button>
@@ -385,7 +429,7 @@ function GameBoard({ room, busy, error, notice, brand, connection, themeToggle, 
                     {claimCost.useLoco > 0 ? `${claimCost.useLoco} 张火车头` : ""}
                   </span>
                 )}
-                <button className="primary-button" type="button" disabled={!claim.color || busy} onClick={confirmClaim}>铺路</button>
+                <button className="primary-button" type="button" disabled={!claim.color || busy} onClick={confirmClaim} data-tutorial="claim-confirm">铺路</button>
                 <button className="quiet-button" type="button" onClick={() => setClaim(null)}>取消</button>
               </span>
             )}
@@ -410,10 +454,10 @@ function GameBoard({ room, busy, error, notice, brand, connection, themeToggle, 
         <aside className="ttr-side">
           {spectating && <SpectateBar room={room} watchId={myId} onWatch={onWatch} onLeave={onLeave} />}
           <Players game={game} myId={selfId} seatColor={seatColor} connected={connected} memberOf={memberOf} />
-          <section className="ttr-panel ttr-faceup">
+          <section className="ttr-panel ttr-faceup" data-tutorial="draw">
             <h3>抽车票 <small>{game.remainingCards !== undefined ? `牌库剩 ${game.remainingCards} 张` : ""}</small></h3>
-            <div className="ttr-faceup-row">
-              <button className="ttr-deck" type="button" disabled={!myTurn || busy || pendingTicketChoice || (game.remainingCards ?? 1) === 0} onClick={drawDeck} title="从牌库摸一张（看不到是什么）">
+            <div className="ttr-faceup-row" data-tutorial="faceup-row">
+              <button className="ttr-deck" type="button" disabled={!myTurn || busy || pendingTicketChoice || (game.remainingCards ?? 1) === 0} onClick={drawDeck} title="从牌库摸一张（看不到是什么）" data-tutorial="deck">
                 <span>牌库</span>
               </button>
               {game.faceUp.map((card, index) => {
@@ -425,6 +469,7 @@ function GameBoard({ room, busy, error, notice, brand, connection, themeToggle, 
                     type="button"
                     disabled={!myTurn || busy || pendingTicketChoice || locoLocked}
                     onClick={() => drawFaceUp(index)}
+                    data-tutorial={`faceup:${index}`}
                     title={locoLocked ? "第二张不能拿明牌火车头" : `${CARD_COLOR_LABEL[card]}${card === LOCOMOTIVE ? "（万能牌；拿了就只能拿这 1 张）" : ""}`}
                   >
                     <CardFace color={card} />
@@ -437,6 +482,7 @@ function GameBoard({ room, busy, error, notice, brand, connection, themeToggle, 
               type="button"
               disabled={!myTurn || busy || Boolean(game.pending) || (game.remainingTickets ?? 0) === 0}
               onClick={drawTickets}
+              data-tutorial="draw-tickets"
             >
               抽 3 张目的地票{game.remainingTickets !== undefined ? `（票堆剩 ${game.remainingTickets}）` : ""}
             </button>
@@ -453,6 +499,7 @@ function GameBoard({ room, busy, error, notice, brand, connection, themeToggle, 
 
       {!spectating && !autoPlaying && choosingStart && me && me.pendingTickets.length > 0 && (
         <TicketModal
+          onSelect={setTicketKeep}
           title="开局目的地票"
           hint={`至少保留 ${game.config.startTicketsKeepMin} 张，其他玩家也在同时选`}
           drawn={me.pendingTickets}
@@ -463,6 +510,7 @@ function GameBoard({ room, busy, error, notice, brand, connection, themeToggle, 
       )}
       {myTurn && !autoPlaying && pendingTicketChoice && game.pending?.type === "ticketChoice" && (
         <TicketModal
+          onSelect={setTicketKeep}
           title="抽到的目的地票"
           hint={`至少保留 ${game.config.ticketsKeepMin} 张；没完成的票终局要倒扣分`}
           drawn={game.pending.drawn}
@@ -471,7 +519,22 @@ function GameBoard({ room, busy, error, notice, brand, connection, themeToggle, 
           onConfirm={(keep) => onCommand({ type: "KEEP_TICKETS", keep })}
         />
       )}
-      {game.phase === "finished" && <FinalDialog game={game} room={room} myId={selfId} seatColor={seatColor} spectating={spectating} onRematch={onRematch} onLeave={onLeave} />}
+      {game.phase === "finished" && !finalHidden && <FinalDialog game={game} room={room} myId={selfId} seatColor={seatColor} spectating={spectating} onRematch={onRematch} onLeave={onLeave} actions={finalActions} />}
+      {shownHint && (
+        <Coach
+          bubble
+          view={{
+            key: `hint-${game.version}`,
+            say: shownHint.say,
+            ...(shownHint.note ? { note: shownHint.note } : {}),
+            anchor: shownHint.anchor,
+            focus: false,
+            face: "think",
+            actions: <button className="quiet-button" type="button" onClick={() => setHint(null)}>知道了</button>,
+          }}
+        />
+      )}
+      {tips.tip && <TipToast tip={tips.tip} onClose={tips.dismiss} onNever={tips.never} />}
     </div>
   );
 }
@@ -506,7 +569,7 @@ function MapView({
   const hb = highlight ? cityPos[highlight.b] : undefined;
 
   return (
-    <div className={acting ? "ttr-map acting" : "ttr-map"}>
+    <div className={acting ? "ttr-map acting" : "ttr-map"} data-tutorial="map">
       <svg viewBox={`0 0 ${MAP_W} ${MAP_H}`} preserveAspectRatio="xMidYMid meet" role="img" aria-label="美国铁路地图">
         <MapBase />
         {GEOM.map(({ route, angle, cars, carLen, x1, y1, x2, y2 }) => {
@@ -518,7 +581,7 @@ function MapView({
           const title = `${cityName(route.a)}–${cityName(route.b)} · ${route.length} 节（${colorName}）· ${ROUTE_SCORES[route.length]} 分`
             + (owner ? ` · 已被${game.players.find((player) => player.id === owner)?.name ?? ""}铺下` : state === "blocked" ? " · 另一边已有人铺，不能再用" : canClaim ? " · 点击铺路" : "");
           return (
-            <g key={route.id} className={`ttr-route ${state}`}>
+            <g key={route.id} className={`ttr-route ${state}`} data-tutorial={`route:${route.id}`}>
               {cars.map((car, index) => (
                 <g key={index} transform={`translate(${car.cx.toFixed(2)} ${car.cy.toFixed(2)}) rotate(${angle.toFixed(1)})`}>
                   <rect className="ttr-car" x={-carLen / 2} y={-CAR_W / 2} width={carLen} height={CAR_W} rx={0.2} fill={fill} />
@@ -574,9 +637,20 @@ function TicketMap({ a, b }: { a: string; b: string }) {
 
 // ---------- 目的地票选择 ----------
 
-function TicketModal({ title, hint, drawn, minKeep, busy, onConfirm }: { title: string; hint: string; drawn: string[]; minKeep: number; busy: boolean; onConfirm: (keep: number[]) => void }) {
+function TicketModal({ title, hint, drawn, minKeep, busy, onConfirm, onSelect }: {
+  title: string;
+  hint: string;
+  drawn: string[];
+  minKeep: number;
+  busy: boolean;
+  onConfirm: (keep: number[]) => void;
+  /** 报出现在留着哪几张（「0,2」），关掉时报 null。 */
+  onSelect?: (keep: string | null) => void;
+}) {
   const [selected, setSelected] = useState<number[]>(drawn.map((_, index) => index));
   useEffect(() => setSelected(drawn.map((_, index) => index)), [drawn.join(",")]);
+  useEffect(() => onSelect?.([...selected].sort((a, b) => a - b).join(",")), [selected.join(",")]);
+  useEffect(() => () => onSelect?.(null), []);
   const toggle = (index: number) => {
     setSelected((current) => current.includes(index) ? current.filter((entry) => entry !== index) : [...current, index]);
   };
@@ -591,7 +665,7 @@ function TicketModal({ title, hint, drawn, minKeep, busy, onConfirm }: { title: 
             const ticket = ticketOf(ticketId);
             const kept = selected.includes(index);
             return (
-              <button key={`${ticketId}-${index}`} type="button" className={kept ? "ttr-ticket kept" : "ttr-ticket dropped"} onClick={() => toggle(index)} aria-pressed={kept}>
+              <button key={`${ticketId}-${index}`} type="button" className={kept ? "ttr-ticket kept" : "ttr-ticket dropped"} onClick={() => toggle(index)} aria-pressed={kept} data-tutorial={`ticket:${index}`}>
                 {ticket && <TicketMap a={ticket.a} b={ticket.b} />}
                 <span className="ttr-ticket-route">
                   {ticket ? <>{cityName(ticket.a)} ↔ {cityName(ticket.b)}</> : ticketId}
@@ -603,7 +677,7 @@ function TicketModal({ title, hint, drawn, minKeep, busy, onConfirm }: { title: 
           })}
         </div>
         <div className="gm-panel-actions">
-          <button className="primary-button" type="button" disabled={!canConfirm} onClick={() => onConfirm(selected)}>
+          <button className="primary-button" type="button" disabled={!canConfirm} onClick={() => onConfirm(selected)} data-tutorial="ticket-confirm">
             确定（保留 {selected.length} 张）
           </button>
         </div>
@@ -622,7 +696,7 @@ function MyHand({ player, owner, hidden }: { player: Player; owner: string | nul
     .map((color) => [color, player.trainCards.filter((card) => card === color).length] as const)
     .filter(([, count]) => count > 0);
   return (
-    <section className="ttr-panel ttr-hand">
+    <section className="ttr-panel ttr-hand" data-tutorial="my-hand">
       <h3>{owner ? `${owner}的手牌` : "我的手牌"} <small>{player.handCount ?? player.trainCards.length} 张 · 火车 {player.trainsLeft} 辆</small></h3>
       {hidden ? <p className="ttr-muted">观战看不到手牌。</p> : groups.length === 0 ? <p className="ttr-muted">还没有车票。</p> : (
         <div className="ttr-hand-row">
@@ -649,7 +723,7 @@ function MyTickets({ game, player, onHover, owner, hidden }: {
 }) {
   const done = player.tickets.filter((id) => { const t = ticketOf(id); return t && linked(game.claimedRoutes, player.id, t.a, t.b); }).length;
   return (
-    <section className="ttr-panel ttr-my-tickets">
+    <section className="ttr-panel ttr-my-tickets" data-tutorial="my-tickets">
       <h3>{owner ? `${owner}的目的地票` : "我的目的地票"} <small>{hidden ? `${player.ticketCount ?? 0} 张` : player.tickets.length > 0 ? `已连通 ${done} / ${player.tickets.length}` : ""}</small></h3>
       {hidden ? <p className="ttr-muted">观战看不到目的地票，终局才公开。</p> : player.tickets.length === 0 ? <p className="ttr-muted">还没有目的地票。</p> : (
         <ul onMouseLeave={() => onHover(null)}>
@@ -682,13 +756,13 @@ function Players({ game, myId, seatColor, connected, memberOf }: {
   memberOf: (id: string) => LobbyRoomSnapshot["members"][number] | undefined;
 }) {
   return (
-    <section className="ttr-panel ttr-players">
+    <section className="ttr-panel ttr-players" data-tutorial="players">
       <h3>玩家 <small>{game.phase === "finished" ? "最终得分" : "分数为已铺线路分"}</small></h3>
       {game.players.map((player, index) => {
         const active = game.phase === "playing" && game.currentPlayer === index;
         const choosing = game.phase === "tickets" && (player.ticketCount ?? player.tickets.length) === 0;
         return (
-          <div className={["ttr-player", active ? "active" : "", !connected(player.id) ? "offline" : ""].join(" ")} key={player.id}>
+          <div className={["ttr-player", active ? "active" : "", !connected(player.id) ? "offline" : ""].join(" ")} key={player.id} data-tutorial={`player:${player.id}`}>
             <i className="ttr-seat" style={{ background: seatColor(player.id) }} />
             <div className="ttr-player-main">
               <strong>
@@ -714,7 +788,7 @@ function Players({ game, myId, seatColor, connected, memberOf }: {
 
 // ---------- 终局 ----------
 
-function FinalDialog({ game, room, myId, seatColor, spectating, onRematch, onLeave }: {
+function FinalDialog({ game, room, myId, seatColor, spectating, onRematch, onLeave, actions }: {
   game: GameState;
   room: LobbyRoomSnapshot;
   myId: string;
@@ -722,6 +796,8 @@ function FinalDialog({ game, room, myId, seatColor, spectating, onRematch, onLea
   spectating: boolean;
   onRematch: (accept: boolean) => void;
   onLeave: () => void;
+  /** 练习局：替代「再来一局」的按钮。 */
+  actions?: ReactNode;
 }) {
   const result = game.finalResult!;
   const accepted = room.rematch?.acceptedIds.includes(socket.id ?? "") ?? false;
@@ -735,7 +811,7 @@ function FinalDialog({ game, room, myId, seatColor, spectating, onRematch, onLea
             const player = game.players.find((entry) => entry.id === score.player)!;
             const winner = result.winners.includes(score.player);
             return (
-              <li key={score.player} className={winner ? "winner" : ""}>
+              <li key={score.player} className={winner ? "winner" : ""} data-tutorial={`final:${score.player}`}>
                 <div className="ttr-standing-head">
                   <i className="ttr-seat" style={{ background: seatColor(score.player) }} />
                   <strong>{winner ? "🏆 " : ""}{player.name}{score.player === myId ? "（你）" : ""}</strong>
@@ -770,6 +846,11 @@ function FinalDialog({ game, room, myId, seatColor, spectating, onRematch, onLea
             <div className="gm-panel-actions">
               <button className="quiet-button" type="button" onClick={onLeave}>离开观战</button>
             </div>
+          </div>
+        ) : actions ? (
+          <div className="ttr-rematch">
+            <span>练习局结束</span>
+            <div className="gm-panel-actions">{actions}</div>
           </div>
         ) : room.rematch && (
           <div className="ttr-rematch">
