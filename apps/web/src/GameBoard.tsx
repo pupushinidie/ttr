@@ -34,6 +34,8 @@ interface GameBoardProps {
   readonly chat: ReactNode;
   readonly onCommand: (command: GameCommand) => void;
   readonly onRematch: (accept: boolean) => void;
+  /** 打开 / 取消自己的托管。 */
+  readonly onAuto: (enabled: boolean) => void;
   readonly onDissolve: () => void;
   /** 观战时从这位玩家的座位看。 */
   readonly watchId: string;
@@ -219,7 +221,7 @@ function describeEvent(event: GameEvent, name: (id: string) => string): string |
   }
 }
 
-function GameBoard({ room, busy, error, notice, brand, connection, themeToggle, chat, onCommand, onRematch, onDissolve, watchId, onWatch, onLeave }: GameBoardProps) {
+function GameBoard({ room, busy, error, notice, brand, connection, themeToggle, chat, onCommand, onRematch, onAuto, onDissolve, watchId, onWatch, onLeave }: GameBoardProps) {
   const game = room.game!;
   const member = room.members.find((candidate) => candidate.id === socket.id);
   // 观战的人没有座位：牌桌按 watchId 那位玩家的座位摆（me 就是他），但什么都不能点，也不叫「你」。
@@ -241,6 +243,9 @@ function GameBoard({ room, busy, error, notice, brand, connection, themeToggle, 
   const seatColor = (playerId: string) => SEAT_COLORS[Math.max(0, game.players.findIndex((player) => player.id === playerId)) % SEAT_COLORS.length]!;
   const nameOf = (playerId: string) => (playerId === selfId ? "你" : game.players.find((player) => player.id === playerId)?.name ?? "?");
   const connected = (playerId: string) => room.members.find((candidate) => candidate.playerId === playerId)?.connected ?? false;
+  const memberOf = (playerId: string) => room.members.find((candidate) => candidate.playerId === playerId);
+  // 托管中：人机替我行动，提示条上给一个「取消托管」
+  const autoPlaying = !spectating && member?.auto === true && game.phase !== "finished";
 
   const [claim, setClaim] = useState<{ routeId: string; color: TrainColor | null } | null>(null);
   useEffect(() => setClaim(null), [game.version]);
@@ -314,6 +319,7 @@ function GameBoard({ room, busy, error, notice, brand, connection, themeToggle, 
   else if (choosingStart) prompt = spectating ? "开局：大家在同时挑目的地票" : me && me.pendingTickets.length > 0 ? "开局：从 3 张目的地票里至少留 2 张（大家同时选）" : "你选好了，等其他玩家选完目的地票…";
   else if (myTurn && pendingTicketChoice) prompt = "选目的地票：至少保留 1 张";
   else if (myTurn && pendingSecondDraw) prompt = "再抽一张：点牌库或明牌（明牌火车头这次不能拿）";
+  else if (autoPlaying) prompt = myTurn || (choosingStart && (me?.pendingTickets.length ?? 0) > 0) ? "托管中：人机正在替你走" : "托管中：轮到你时人机替你走";
   else if (claim && claimRoute) prompt = `铺 ${cityName(claimRoute.a)}–${cityName(claimRoute.b)}（${claimRoute.length} 节，+${ROUTE_SCORES[claimRoute.length]} 分）`;
   else if (myTurn) prompt = "轮到你了：抽 2 张车票、抽目的地票，或在地图上点一条亮起的线路铺路";
   else prompt = `等待 ${current?.name ?? ""} 行动…`;
@@ -346,6 +352,11 @@ function GameBoard({ room, busy, error, notice, brand, connection, themeToggle, 
         <section className="ttr-map-area">
           <div className={myTurn ? "ttr-prompt mine" : "ttr-prompt"} role="status">
             <span className="ttr-prompt-text">{prompt}</span>
+            {autoPlaying && (
+              <span className="ttr-prompt-buttons">
+                <button className="quiet-button ttr-auto-cancel" type="button" onClick={() => onAuto(false)} data-tutorial="cancel-auto">取消托管</button>
+              </span>
+            )}
             {claim && claimRoute && (
               <span className="ttr-prompt-buttons">
                 {claimRoute.color === "gray" && (
@@ -398,7 +409,7 @@ function GameBoard({ room, busy, error, notice, brand, connection, themeToggle, 
 
         <aside className="ttr-side">
           {spectating && <SpectateBar room={room} watchId={myId} onWatch={onWatch} onLeave={onLeave} />}
-          <Players game={game} myId={selfId} seatColor={seatColor} connected={connected} />
+          <Players game={game} myId={selfId} seatColor={seatColor} connected={connected} memberOf={memberOf} />
           <section className="ttr-panel ttr-faceup">
             <h3>抽车票 <small>{game.remainingCards !== undefined ? `牌库剩 ${game.remainingCards} 张` : ""}</small></h3>
             <div className="ttr-faceup-row">
@@ -663,7 +674,13 @@ function MyTickets({ game, player, onHover, owner, hidden }: {
 
 // ---------- 玩家列表 ----------
 
-function Players({ game, myId, seatColor, connected }: { game: GameState; myId: string; seatColor: (id: string) => string; connected: (id: string) => boolean }) {
+function Players({ game, myId, seatColor, connected, memberOf }: {
+  game: GameState;
+  myId: string;
+  seatColor: (id: string) => string;
+  connected: (id: string) => boolean;
+  memberOf: (id: string) => LobbyRoomSnapshot["members"][number] | undefined;
+}) {
   return (
     <section className="ttr-panel ttr-players">
       <h3>玩家 <small>{game.phase === "finished" ? "最终得分" : "分数为已铺线路分"}</small></h3>
@@ -677,7 +694,9 @@ function Players({ game, myId, seatColor, connected }: { game: GameState; myId: 
               <strong>
                 {player.name}
                 {player.id === myId && <small className="ttr-you">你</small>}
-                {!connected(player.id) && <small className="ttr-offline">离线</small>}
+                {memberOf(player.id)?.bot && <small className="ttr-bot">人机</small>}
+                {!memberOf(player.id)?.bot && memberOf(player.id)?.auto && <small className="ttr-auto">托管</small>}
+                {!connected(player.id) && <small className="ttr-offline">离线·人机代打</small>}
               </strong>
               <span className="ttr-player-stats">
                 {game.phase === "tickets"

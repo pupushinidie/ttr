@@ -197,6 +197,9 @@
 .ttr-player.active .ttr-player-main strong::before { content: "▶ "; }
 .ttr-you { margin-left: 6px; padding: 0 4px; color: #2a1c06; background: var(--gold); }
 .ttr-offline { margin-left: 6px; color: var(--bad); }
+.ttr-bot { margin-left: 6px; padding: 0 4px; color: #d8e8ff; background: #2a62c0; }
+.ttr-auto { margin-left: 6px; padding: 0 4px; color: #2a1c06; background: #ffb24a; }
+.ttr-auto-cancel { padding: 2px 10px; font-size: 12px; white-space: nowrap; }
 .ttr-player-stats { color: var(--muted); font-size: 12px; }
 .ttr-score { flex: 0 0 auto; min-width: 28px; color: var(--gold); font-size: 24px; line-height: 1; text-align: right; }
 

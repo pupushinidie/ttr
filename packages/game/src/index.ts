@@ -9,6 +9,8 @@ export {
   timeoutTurn,
 } from "./engine.js";
 export type { NewPlayer } from "./engine.js";
+export { botAdvice, botCommand, routeLabel } from "./bot.js";
+export type { BotAdvice } from "./bot.js";
 export { createRng } from "./rng.js";
 export type { Rng } from "./rng.js";
 export * from "./map.js";
