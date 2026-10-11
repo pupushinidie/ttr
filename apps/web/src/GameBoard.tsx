@@ -24,6 +24,8 @@ import { socket } from "./socket.js";
 import { Coach, TipToast } from "./tutorial/Coach.js";
 import { useFirstTimeTips } from "./tutorial/tips.js";
 import { detectTips, GAME_ID, hintFor, TIPS, type Hint } from "./tutorialGame.js";
+import { useSfxCountdown } from "./gm-sound.js";
+import { pick, useGameSfx } from "./game-sfx.js";
 
 interface GameBoardProps {
   readonly room: LobbyRoomSnapshot;
@@ -253,6 +255,10 @@ function GameBoard({ room, busy, error, notice, brand, connection, themeToggle, 
   // 观战没开「看手牌」时，被看的那位玩家的手牌和目的地票只看得到张数。
   const handHidden = spectating && !room.access.spectatorsSeeAll;
   const secondsLeft = useCountdown(room);
+  // 音效：每一步动作对应的声音；自己要行动时最后 5 秒滴答（开局选票时大家同时选，也算）
+  useGameSfx(game, selfId);
+  const mustAct = myTurn || (!spectating && choosingStart && (me?.pendingTickets.length ?? 0) > 0);
+  useSfxCountdown(mustAct && member?.auto !== true, secondsLeft);
   // 「对局已开始」这类提示只留到第一步动作，之后不再一直挂在棋盘上
   const firstVersion = useRef(game.version);
   const shownNotice = game.version === firstVersion.current ? notice : "";
@@ -315,6 +321,7 @@ function GameBoard({ room, busy, error, notice, brand, connection, themeToggle, 
 
   function clickRoute(route: RouteDef) {
     if (!canClaimNow) return;
+    pick.select(true);
     setClaim({ routeId: route.id, color: route.color === "gray" ? affordColorForGray(route) : route.color });
   }
 
@@ -414,6 +421,7 @@ function GameBoard({ room, busy, error, notice, brand, connection, themeToggle, 
                           type="button"
                           className={claim.color === color ? "ttr-swatch picked" : "ttr-swatch"}
                           style={{ background: COLOR_HEX[color] }}
+                          data-sfx="select"
                           onClick={() => setClaim({ routeId: claim.routeId, color })}
                           title={`用${TRAIN_COLOR_NAMES[color]}色（手里 ${countOf(color)} 张）`}
                           aria-label={TRAIN_COLOR_NAMES[color]}
@@ -591,7 +599,7 @@ function MapView({
               <line
                 className="ttr-route-hit"
                 x1={x1} y1={y1} x2={x2} y2={y2}
-                onClick={canClaim ? () => onRouteClick(route) : undefined}
+                onClick={canClaim ? () => onRouteClick(route) : acting ? pick.deny : undefined}
               >
                 <title>{title}</title>
               </line>
@@ -652,6 +660,7 @@ function TicketModal({ title, hint, drawn, minKeep, busy, onConfirm, onSelect }:
   useEffect(() => onSelect?.([...selected].sort((a, b) => a - b).join(",")), [selected.join(",")]);
   useEffect(() => () => onSelect?.(null), []);
   const toggle = (index: number) => {
+    pick.select(!selected.includes(index));
     setSelected((current) => current.includes(index) ? current.filter((entry) => entry !== index) : [...current, index]);
   };
   const canConfirm = selected.length >= minKeep && !busy;
@@ -665,7 +674,7 @@ function TicketModal({ title, hint, drawn, minKeep, busy, onConfirm, onSelect }:
             const ticket = ticketOf(ticketId);
             const kept = selected.includes(index);
             return (
-              <button key={`${ticketId}-${index}`} type="button" className={kept ? "ttr-ticket kept" : "ttr-ticket dropped"} onClick={() => toggle(index)} aria-pressed={kept} data-tutorial={`ticket:${index}`}>
+              <button key={`${ticketId}-${index}`} type="button" className={kept ? "ttr-ticket kept" : "ttr-ticket dropped"} data-sfx="none" onClick={() => toggle(index)} aria-pressed={kept} data-tutorial={`ticket:${index}`}>
                 {ticket && <TicketMap a={ticket.a} b={ticket.b} />}
                 <span className="ttr-ticket-route">
                   {ticket ? <>{cityName(ticket.a)} ↔ {cityName(ticket.b)}</> : ticketId}

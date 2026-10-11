@@ -27,6 +27,7 @@ import {
   type TutorialStep,
 } from "@ttr/game";
 import GameBoard from "./GameBoard.js";
+import { pick } from "./game-sfx.js";
 import { Coach, isTouchDevice, StepPips, type CoachView } from "./tutorial/Coach.js";
 import { writeTutorial } from "./tutorial/storage.js";
 import { useTutorial } from "./tutorial/useTutorial.js";
@@ -86,6 +87,10 @@ export default function TutorialMode({ name, brand, themeToggle, waitingRoom, on
     watchDelay: () => 1600,
   });
   const { game, step, index, practice, flash } = tutorial;
+  // 剧本里点了别的：咕噜嘎提醒的同时响一声「不行」
+  useEffect(() => {
+    if (flash) pick.deny();
+  }, [flash]);
   // 练习局里轮到你却什么都做不了（极少见：牌和票都抽光、也铺不起）：过这一回合
   useEffect(() => {
     if (!practice || game.phase !== "playing" || tutorialActor(game) !== TUTORIAL_SELF) return;
