@@ -337,7 +337,9 @@
 @media (max-width: 760px) {
   .ttr-side { grid-template-columns: 1fr; }
   .ttr-topbar { flex-wrap: wrap; }
-  .ttr-topbar-right { margin-left: auto; }
+  /* 右边一排按钮放不下时折到下一行，别把「游戏规则」「已连接」挤成竖排 */
+  .ttr-topbar-right { margin-left: auto; flex-wrap: wrap; justify-content: flex-end; row-gap: 8px; }
+  .ttr-topbar-right > * { flex-shrink: 0; white-space: nowrap; }
   /* 手机上地图太小看不清：固定一个可读的宽度，左右滑动看 */
   .ttr-map { overflow-x: auto; -webkit-overflow-scrolling: touch; }
   .ttr-map svg { width: 760px; max-width: none; }
