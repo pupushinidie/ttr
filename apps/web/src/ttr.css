@@ -352,3 +352,19 @@
 /* 教程剧本进行中咕噜嘎会讲每一步，动作记录只留最新两条；练习局留三四条 */
 .tut-script .ttr-log ul { max-height: 42px; overflow: hidden; }
 .tut-practice .ttr-log ul { max-height: 86px; overflow: hidden; }
+
+/* ---------- 全屏背景：首页、等候房间的场景铺满窗口 ---------- */
+.ttr-backdrop { position: fixed; inset: 0; z-index: 0; overflow: hidden; pointer-events: none; background: #100d0a; }
+.ttr-backdrop-art {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: max(100vw, calc(100vh * 16 / 9));
+  height: max(100vh, calc(100vw * 9 / 16));
+  transform: translate(-50%, -50%);
+  background-size: 100% 100%;
+  image-rendering: pixelated;
+}
+.ttr-backdrop-art--day { display: none; }
+.ttr-backdrop-veil { position: absolute; inset: 0; background: #080605; opacity: 0.4; }
+.app-shell.ttr-home > :not(.ttr-backdrop):not(.gm-modal-backdrop), .app-shell.ttr-room > :not(.ttr-backdrop):not(.gm-modal-backdrop) { position: relative; z-index: 1; }

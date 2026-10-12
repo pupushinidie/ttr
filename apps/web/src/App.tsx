@@ -298,7 +298,8 @@ function App() {
 
   if (room) {
     return (
-      <main className="app-shell">
+      <main className="app-shell ttr-room">
+        <TtrBackdrop />
         <header className="topbar">
           <Brand />
           <div className="topbar-right">
@@ -334,7 +335,8 @@ function App() {
   }
 
   return (
-    <main className="app-shell">
+    <main className="app-shell ttr-home">
+      <TtrBackdrop />
       <header className="topbar">
         <Brand />
         <div className="topbar-right">
@@ -470,6 +472,18 @@ function App() {
       <OnlineRooms rooms={lobbyRooms} connected={connected} busy={busy} onJoin={joinListed} />
       <footer className="page-footer">一路铺铁轨，连起整片大陆。</footer>
     </main>
+  );
+}
+
+/** 全屏背景：把对局场景铺满窗口（16:9 居中裁切），上面盖一层罩色让面板更突出。首页和等候房间放在 <main> 的第一个子元素。 */
+function TtrBackdrop() {
+  const base = import.meta.env.BASE_URL;
+  return (
+    <div className="ttr-backdrop" aria-hidden="true">
+      <div className="ttr-backdrop-art ttr-backdrop-art--day" style={{ backgroundImage: `url(${base}art/bg/day.png)` }} />
+      <div className="ttr-backdrop-art ttr-backdrop-art--night" style={{ backgroundImage: `url(${base}art/bg/night.png)` }} />
+      <div className="ttr-backdrop-veil" />
+    </div>
   );
 }
 
